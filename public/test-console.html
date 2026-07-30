@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VibeMatch — API test console</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --bg: #14121a;
+    --panel: #1e1b26;
+    --panel-2: #262233;
+    --line: #362f45;
+    --text: #f1eef7;
+    --muted: #9d94b3;
+    --accent: #ff5da2;
+    --accent-2: #7c5cff;
+    --good: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .card h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  input:focus, select:focus, textarea:focus, button:focus {
+    outline: 2px solid var(--accent-2);
+    outline-offset: 1px;
+  }
+  button {
+    margin-top: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 9px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button.secondary {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .status { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 16px; }
+  .status.ok { color: var(--good); }
+  .status.err { color: var(--accent); }
+  .candidate, .match-item {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  .candidate .meta, .match-item .meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .pill {
+    display: inline-block;
+    background: var(--panel-2);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 11px;
+    margin-right: 4px;
+    color: var(--muted);
+  }
+  #chatLog {
+    height: 220px;
+    overflow-y: auto;
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 13px;
+  }
+  .msg { margin-bottom: 6px; }
+  .msg.mine { color: var(--accent); }
+  .hidden { display: none; }
+  .userid-badge {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .userid-badge span { color: var(--good); font-weight: 600; }
+  #locationMap {
+    height: 200px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  .location-readout {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .location-readout span { color: var(--good); }
+</style>
+</head>
+<body>
+
+<h1>VibeMatch — API test console</h1>
+<p class="sub">A plain test harness for the backend (auth, profile, discovery, matching, chat) — not the real app UI. Point your React app at the same endpoints once it's ready.</p>
+<div class="userid-badge">Logged in as user id: <span id="currentUserLabel">none</span></div>
+
+<div class="grid">
+
+  <!-- LOGIN -->
+  <div class="card">
+    <h2>1. Login (SMS OTP)</h2>
+    <label>Phone number</label>
+    <input id="phoneInput" placeholder="+254700000001" value="+254700000001" />
+    <button id="sendOtpBtn">Send code</button>
+    <div id="otpSection" class="hidden">
+      <label>Code</label>
+      <input id="otpInput" placeholder="6-digit code" />
+      <button id="verifyOtpBtn">Verify</button>
+    </div>
+    <div id="loginStatus" class="status"></div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="card">
+    <h2>2. Profile</h2>
+    <label>Name</label>
+    <input id="nameInput" placeholder="Amaka" />
+    <div class="row">
+      <div>
+        <label>Age</label>
+        <input id="ageInput" type="number" value="24" />
+      </div>
+      <div>
+        <label>Gender</label>
+        <select id="genderInput">
+          <option value="female">female</option>
+          <option value="male">male</option>
+          <option value="other">other</option>
+        </select>
+      </div>
+    </div>
+    <label>Seeking</label>
+    <select id="seekingInput">
+      <option value="male">male</option>
+      <option value="female">female</option>
+      <option value="any">any</option>
+    </select>
+    <label>Location (click the map to set it, or drag the pin)</label>
+    <div id="locationMap"></div>
+    <div class="location-readout">Selected: <span id="locationReadout">-1.2921, 36.8219</span> (Nairobi CBD, default)</div>
+    <input id="latInput" type="hidden" value="-1.2921" />
+    <input id="lonInput" type="hidden" value="36.8219" />
+    <button type="button" id="useMyLocationBtn" class="secondary">Use my current location</button>
+    <label>Max distance (km)</label>
+    <input id="distInput" type="number" value="50" />
+    <label>Bio</label>
+    <textarea id="bioInput" rows="2" placeholder="Hiking on weekends, jazz on weeknights."></textarea>
+    <label>Interests (comma separated)</label>
+    <input id="interestsInput" placeholder="hiking, jazz, coffee" />
+    <label>Vibe quiz (1 = low, 5 = high)</label>
+    <div class="row">
+      <div><label>Energy</label><input id="vibe1" type="range" min="1" max="5" value="3" /></div>
+      <div><label>Spontaneity</label><input id="vibe2" type="range" min="1" max="5" value="3" /></div>
+    </div>
+    <div class="row">
+      <div><label>Directness</label><input id="vibe3" type="range" min="1" max="5" value="3" /></div>
+      <div><label>Humor (silly→dry)</label><input id="vibe4" type="range" min="1" max="5" value="3" /></div>
+    </div>
+    <button id="saveProfileBtn">Save profile</button>
+    <div id="profileStatus" class="status"></div>
+  </div>
+
+  <!-- DISCOVER -->
+  <div class="card">
+    <h2>3. Discover</h2>
+    <button id="refreshDiscoverBtn" class="secondary">Refresh</button>
+    <div id="candidatesList" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- MATCHES + CHAT -->
+  <div class="card">
+    <h2>4. Matches &amp; chat</h2>
+    <button id="refreshMatchesBtn" class="secondary">Refresh matches</button>
+    <div id="matchesList" style="margin-top:12px;"></div>
+    <div id="chatSection" class="hidden" style="margin-top:14px;">
+      <div id="chatLog"></div>
+      <div class="row" style="margin-top:8px;">
+        <input id="chatInput" placeholder="Type a message…" />
+        <button id="sendChatBtn">Send</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let currentUserId = localStorage.getItem("vm_userId") ? Number(localStorage.getItem("vm_userId")) : null;
+  let currentMatchId = null;
+  let socket = null;
+
+  function setStatus(el, text, kind) {
+    el.textContent = text;
+    el.className = "status" + (kind ? " " + kind : "");
+  }
+
+  function refreshUserLabel() {
+    $("currentUserLabel").textContent = currentUserId ?? "none";
+  }
+  refreshUserLabel();
+
+  // ---- Location map ----
+  let locationMap = null;
+  let locationMarker = null;
+
+  function setLocation(lat, lng) {
+    $("latInput").value = lat.toFixed(6);
+    $("lonInput").value = lng.toFixed(6);
+    $("locationReadout").textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }
+
+  function initLocationMap() {
+    const startLat = Number($("latInput").value);
+    const startLng = Number($("lonInput").value);
+
+    locationMap = L.map("locationMap").setView([startLat, startLng], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 18,
+    }).addTo(locationMap);
+
+    locationMarker = L.marker([startLat, startLng], { draggable: true }).addTo(locationMap);
+
+    locationMarker.on("dragend", () => {
+      const pos = locationMarker.getLatLng();
+      setLocation(pos.lat, pos.lng);
+    });
+
+    locationMap.on("click", (e) => {
+      locationMarker.setLatLng(e.latlng);
+      setLocation(e.latlng.lat, e.latlng.lng);
+    });
+  }
+
+  $("useMyLocationBtn").addEventListener("click", () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation isn't supported by this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        locationMap.setView([latitude, longitude], 14);
+        locationMarker.setLatLng([latitude, longitude]);
+        setLocation(latitude, longitude);
+      },
+      (err) => alert("Could not get your location: " + err.message)
+    );
+  });
+
+  initLocationMap();
+
+  // ---- Auth ----
+  $("sendOtpBtn").addEventListener("click", async () => {
+    const phoneNumber = $("phoneInput").value.trim();
+    const res = await fetch("/api/auth/request-otp", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber }),
+    });
+    const data = await res.json();
+    $("otpSection").classList.remove("hidden");
+    if (data.devOtp) {
+      setStatus($("loginStatus"), `Dev mode — your code is ${data.devOtp} (no real SMS configured yet)`, "ok");
+      $("otpInput").value = data.devOtp;
+    } else {
+      setStatus($("loginStatus"), "Code sent via SMS.", "ok");
+    }
+  });
+
+  $("verifyOtpBtn").addEventListener("click", async () => {
+    const phoneNumber = $("phoneInput").value.trim();
+    const otp = $("otpInput").value.trim();
+    const res = await fetch("/api/auth/verify-otp", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber, otp }),
+    });
+    if (!res.ok) {
+      setStatus($("loginStatus"), "Invalid or expired code.", "err");
+      return;
+    }
+    const data = await res.json();
+    currentUserId = data.userId;
+    localStorage.setItem("vm_userId", currentUserId);
+    refreshUserLabel();
+    setStatus($("loginStatus"), `Logged in as user ${currentUserId}.`, "ok");
+    connectSocket();
+  });
+
+  // ---- Profile ----
+  $("saveProfileBtn").addEventListener("click", async () => {
+    if (!currentUserId) return setStatus($("profileStatus"), "Log in first.", "err");
+    const body = {
+      name: $("nameInput").value,
+      age: Number($("ageInput").value),
+      gender: $("genderInput").value,
+      seekingGender: $("seekingInput").value,
+      latitude: Number($("latInput").value),
+      longitude: Number($("lonInput").value),
+      maxDistanceKm: Number($("distInput").value),
+      bio: $("bioInput").value,
+      interests: $("interestsInput").value.split(",").map((s) => s.trim()).filter(Boolean),
+      vibeAnswers: [Number($("vibe1").value), Number($("vibe2").value), Number($("vibe3").value), Number($("vibe4").value)],
+      minAge: 18, maxAge: 99,
+    };
+    const res = await fetch(`/api/profile/${currentUserId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setStatus($("profileStatus"), res.ok ? "Profile saved." : "Failed to save profile.", res.ok ? "ok" : "err");
+  });
+
+  // ---- Discover ----
+  $("refreshDiscoverBtn").addEventListener("click", loadDiscover);
+
+  async function loadDiscover() {
+    if (!currentUserId) return;
+    const res = await fetch(`/api/discover/${currentUserId}`);
+    const candidates = await res.json();
+    const list = $("candidatesList");
+    list.innerHTML = "";
+    if (!candidates.length) {
+      list.innerHTML = '<div class="status">No candidates yet — try the seed script, or adjust filters.</div>';
+      return;
+    }
+    for (const c of candidates) {
+      const div = document.createElement("div");
+      div.className = "candidate";
+      div.innerHTML = `
+        <strong>${c.name}, ${c.age}</strong>
+        <div class="meta">${c.distanceKm}km away · ${c.vibePercent}% vibe · ${c.sharedInterestCount} shared interests</div>
+        <div class="meta">${(c.interests || []).map((i) => `<span class="pill">${i}</span>`).join("")}</div>
+        <button data-id="${c.id}" class="likeBtn secondary">Like</button>
+      `;
+      list.appendChild(div);
+    }
+    list.querySelectorAll(".likeBtn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const toUserId = Number(btn.dataset.id);
+        const res = await fetch("/api/like", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fromUserId: currentUserId, toUserId }),
+        });
+        const data = await res.json();
+        btn.textContent = data.matched ? "It's a match! 🎉" : "Liked";
+        btn.disabled = true;
+        if (data.matched) loadMatches();
+      });
+    });
+  }
+
+  // ---- Matches ----
+  $("refreshMatchesBtn").addEventListener("click", loadMatches);
+
+  async function loadMatches() {
+    if (!currentUserId) return;
+    const res = await fetch(`/api/matches/${currentUserId}`);
+    const matches = await res.json();
+    const list = $("matchesList");
+    list.innerHTML = "";
+    for (const m of matches) {
+      const div = document.createElement("div");
+      div.className = "match-item";
+      div.innerHTML = `<strong>${m.otherUser.name || "Unnamed"}</strong> <div class="meta">matched ${new Date(m.createdAt).toLocaleString()}</div>`;
+      div.style.cursor = "pointer";
+      div.addEventListener("click", () => openChat(m.matchId));
+      list.appendChild(div);
+    }
+  }
+
+  // ---- Chat ----
+  function connectSocket() {
+    if (socket) return;
+    socket = io();
+    socket.on("new_message", (msg) => {
+      if (msg.matchId === currentMatchId) appendMessage(msg);
+    });
+  }
+
+  async function openChat(matchId) {
+    currentMatchId = matchId;
+    $("chatSection").classList.remove("hidden");
+    $("chatLog").innerHTML = "";
+    connectSocket();
+    socket.emit("join_match", matchId);
+    const res = await fetch(`/api/messages/${matchId}`);
+    const messages = await res.json();
+    messages.forEach(appendMessage);
+  }
+
+  function appendMessage(msg) {
+    const div = document.createElement("div");
+    div.className = "msg" + (msg.senderId === currentUserId ? " mine" : "");
+    div.textContent = `${msg.senderId === currentUserId ? "You" : "Them"}: ${msg.content}`;
+    $("chatLog").appendChild(div);
+    $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  }
+
+  $("sendChatBtn").addEventListener("click", () => {
+    const content = $("chatInput").value.trim();
+    if (!content || !currentMatchId || !socket) return;
+    socket.emit("send_message", { matchId: currentMatchId, senderId: currentUserId, content });
+    $("chatInput").value = "";
+  });
+
+  if (currentUserId) connectSocket();
+</script>
+
+</body>
+</html>

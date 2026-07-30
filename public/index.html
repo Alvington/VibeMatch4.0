@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeMatch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <nav>
+        <div class="nav-mark"><span class="dot"></span>VibeMatch</div>
+        <div class="nav-links">
+            <a href="#how">how it works</a>
+            <a href="#why">why VibeMatch</a>
+            <a href="#stories">stories</a>
+        </div>
+        <a href="login.html" class="nav-cta">get the app</a>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-copy">
+            <div class="hero-eyebrow eyebrow"><span class="rule"></span>casual dating, actually casual</div>
+            <h1 class="display">send a voice note<br>before your <em>whole personality.</em></h1>
+            <p class="lede">VibeMatch skips the posed photos and pickup lines. Answer a daily prompt out loud, match on
+                vibe, and text like a person — not a highlight reel.</p>
+            <div class="hero-actions">
+                <a href="login.html" class="btn-primary">start matching →</a>
+                <a href="#how" class="btn-ghost">▶ hear a sample match</a>
+            </div>
+            <div class="hero-proof">
+                <div class="avatars">
+                    <span style="background:#FF6F59"></span>
+                    <span style="background:#FFB86B"></span>
+                    <span style="background:#6B2F4F"></span>
+                    <span style="background:#9C7B96"></span>
+                </div>
+                <p><strong>40,000+</strong> first dates that started with a laugh, not a swipe</p>
+            </div>
+        </div>
+
+        <div class="hero-visual">
+            <div class="phone">
+                <div class="phone-notch"></div>
+                <div class="chat-row">
+                    <div class="bubble them">omg you actually answered today's prompt out loud 😭</div>
+                </div>
+                <div class="chat-row me">
+                    <div class="voice-note">
+                        <div class="waveform" id="wave1"></div>
+                        <span class="dur">0:14</span>
+                    </div>
+                </div>
+                <div class="chat-row">
+                    <div class="bubble them">okay the accent on "obviously" sent me</div>
+                </div>
+                <div class="chat-row me">
+                    <div class="bubble me">it's a whole bit, ask me about it friday</div>
+                </div>
+                <div class="chat-row">
+                    <div class="voice-note">
+                        <div class="waveform" id="wave2"></div>
+                        <span class="dur">0:22</span>
+                    </div>
+                </div>
+            </div>
+            <div class="float-card one">
+                <img src="https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=200&h=150&fit=crop" alt="">
+                <div class="name">Priya, 24</div>
+                <div class="sub">92% vibe match</div>
+            </div>
+            <div class="float-card two">
+                <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=150&fit=crop" alt="">
+                <div class="name">Marcus, 26</div>
+                <div class="sub">plays today at 6pm</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="marquee">
+        <div class="marquee-track">
+            <span>no more "hey" openers</span>
+            <span>◆</span>
+            <span>talk before you swipe</span>
+            <span>◆</span>
+            <span>one good match a day</span>
+            <span>◆</span>
+            <span>no more "hey" openers</span>
+            <span>◆</span>
+            <span>talk before you swipe</span>
+            <span>◆</span>
+            <span>one good match a day</span>
+            <span>◆</span>
+        </div>
+    </div>
+
+    <section class="section" id="how">
+        <div class="section-head">
+            <div class="eyebrow">how a day on VibeMatch goes</div>
+            <h2 class="display">Three moments, not an endless scroll.</h2>
+            <p>VibeMatch doesn't run on infinite matches. It runs on the actual rhythm of getting to know someone.</p>
+        </div>
+        <div class="rhythm-grid">
+            <div class="rhythm-card">
+                <div class="time">9:14 AM</div>
+                <h3 class="display">morning prompt</h3>
+                <p>One question drops daily — "narrate your coffee order like a sports commentator." Answer with a
+                    20-second voice note. That's your profile for the day.</p>
+                <div class="rhythm-wave" id="rw1"></div>
+            </div>
+            <div class="rhythm-card">
+                <div class="time">1:40 PM</div>
+                <h3 class="display">the one match</h3>
+                <p>VibeMatch sends a single match at lunch, picked from how you both answered — not how you both look.
+                    You
+                    get 48 hours to say something back.</p>
+                <div class="rhythm-wave" id="rw2"></div>
+            </div>
+            <div class="rhythm-card">
+                <div class="time">6:20 PM</div>
+                <h3 class="display">golden hour date</h3>
+                <p>If it clicks, VibeMatch suggests a low-stakes first meetup nearby — coffee, a walk, a show — timed
+                    for
+                    right after work, not a whole evening's commitment.</p>
+                <div class="rhythm-wave" id="rw3"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section features" id="why">
+        <div class="section-head">
+            <div class="eyebrow">why VibeMatch</div>
+            <h2 class="display">Built for people tired of performing.</h2>
+            <p>Every choice here removes a reason to fake it.</p>
+        </div>
+        <div class="feature-list">
+            <div class="feature-item">
+                <div class="num">01</div>
+                <h4 class="display">voice, not just photos</h4>
+                <p>Every profile has a spoken answer front and center. You hear how someone actually talks before you
+                    decide anything else.</p>
+            </div>
+            <div class="feature-item">
+                <div class="num">02</div>
+                <h4 class="display">one match, not a hundred</h4>
+                <p>No feed to scroll. VibeMatch sends a single considered match a day, so you show up instead of
+                    stockpiling
+                    options.</p>
+            </div>
+            <div class="feature-item">
+                <div class="num">03</div>
+                <h4 class="display">prompts that reveal something</h4>
+                <p>Daily prompts are written to surface humor and specifics, not the same three "hiking, tacos, tequila"
+                    bios.</p>
+            </div>
+            <div class="feature-item">
+                <div class="num">04</div>
+                <h4 class="display">dates that fit real life</h4>
+                <p>Suggested meetups are short, nearby, and timed around your day — first dates that don't require
+                    clearing your calendar.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="notes-wall" id="stories">
+        <div class="section-head">
+            <div class="eyebrow">what people say after</div>
+            <h2 class="display">Texts from actual matches.</h2>
+        </div>
+        <div class="notes-grid">
+            <div class="note-card">
+                <p class="msg">"his voice note was funnier than every bio I'd read that week. we're on date four."</p>
+                <div class="meta">
+                    <div class="avatar"></div>
+                    <div>
+                        <div class="who">Dana, 23</div>
+                        <div class="where">matched in Austin</div>
+                    </div>
+                </div>
+            </div>
+            <div class="note-card">
+                <p class="msg">"i said yes to coffee because it was literally on my walk home. zero pressure."</p>
+                <div class="meta">
+                    <div class="avatar"></div>
+                    <div>
+                        <div class="who">Theo, 27</div>
+                        <div class="where">matched in Chicago</div>
+                    </div>
+                </div>
+            </div>
+            <div class="note-card">
+                <p class="msg">"one match a day sounds slow until you realize you actually read it instead of skipping
+                    past."</p>
+                <div class="meta">
+                    <div class="avatar"></div>
+                    <div>
+                        <div class="who">Ify, 25</div>
+                        <div class="where">matched in Atlanta</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-band">
+        <h2 class="display">Say something<br><em>worth a voice note back.</em></h2>
+        <a href="login.html" class="btn-primary">get VibeMatch free →</a>
+        <div class="cta-wave" id="ctawave"></div>
+    </section>
+
+    <footer>
+        <div class="nav-mark"><span class="dot"></span>VibeMatch</div>
+        <div>© 2026 VibeMatch. one good match a day.</div>
+    </footer>
+
+    <script>
+        function buildWave(id, count, maxH, color) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            let bars = '';
+            for (let i = 0; i < count; i++) {
+                const h = Math.round(6 + Math.random() * maxH);
+                bars += `<span style="height:${h}px"></span>`;
+            }
+            el.innerHTML = bars;
+        }
+        buildWave('wave1', 24, 16);
+        buildWave('wave2', 30, 16);
+        buildWave('rw1', 26, 22);
+        buildWave('rw2', 26, 22);
+        buildWave('rw3', 26, 22);
+        buildWave('ctawave', 40, 24);
+    </script>
+
+</body>
+
+</html>

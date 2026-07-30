@@ -1,0 +1,490 @@
+/* ==========================================================================
+   app.css — extends style.css's tokens (--dusk-*, --coral, --amber, --cream,
+   --blush, --ink, --plum-muted, --radius-*) with the components the app
+   pages need: a logged-in nav, form fields, auth card, discover cards, chat.
+   Loaded after style.css on every app page (login/profile/discover/chat).
+   ========================================================================== */
+
+body.app-body {
+    overflow-x: initial;
+}
+
+/* ---------- APP NAV (logged-in shell, light bg vs. the landing's dark nav) ---------- */
+.app-nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 5.5vw;
+    background: var(--cream);
+    border-bottom: 1px solid rgba(31, 20, 32, 0.08);
+}
+
+.app-nav .nav-mark {
+    color: var(--ink);
+    font-size: 19px;
+}
+
+.app-nav .app-links {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.app-nav .app-links a {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--plum-muted);
+    padding: 8px 14px;
+    border-radius: 100px;
+    transition: color 0.15s, background 0.15s;
+}
+
+.app-nav .app-links a:hover {
+    color: var(--ink);
+}
+
+.app-nav .app-links a.active {
+    color: var(--ink);
+    background: var(--blush-2);
+}
+
+.app-nav .app-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.app-nav .user-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--plum-muted);
+}
+
+.app-nav .logout-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--coral-dim);
+}
+
+@media (max-width: 720px) {
+    .app-nav .app-links { display: none; }
+}
+
+.app-main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 5.5vw 100px;
+}
+
+.app-main.wide {
+    max-width: 1040px;
+}
+
+.app-head {
+    margin-bottom: 36px;
+}
+
+.app-head .eyebrow {
+    color: var(--coral-dim);
+    margin-bottom: 10px;
+}
+
+.app-head h1 {
+    font-size: clamp(26px, 4vw, 36px);
+    color: var(--ink);
+}
+
+.app-head p {
+    margin-top: 10px;
+    color: #6b5468;
+    font-size: 15px;
+}
+
+/* ---------- FORM FIELDS ---------- */
+.field { margin-bottom: 20px; }
+
+.field label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--plum-muted);
+    margin-bottom: 8px;
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field input[type="tel"],
+.field select,
+.field textarea {
+    width: 100%;
+    padding: 13px 15px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(31, 20, 32, 0.12);
+    background: var(--cream);
+    font-family: 'Sora', sans-serif;
+    font-size: 14.5px;
+    color: var(--ink);
+}
+
+.field input:focus, .field select:focus, .field textarea:focus {
+    outline: 2px solid var(--coral);
+    outline-offset: 1px;
+}
+
+.field input[type="range"] {
+    width: 100%;
+    accent-color: var(--coral);
+}
+
+.field-row { display: flex; gap: 16px; }
+.field-row > .field { flex: 1; }
+
+.field-hint {
+    font-size: 12px;
+    color: var(--plum-muted);
+    margin-top: 6px;
+}
+
+/* ---------- BUTTONS (form context - block width) ---------- */
+.btn-block {
+    display: block;
+    width: 100%;
+    text-align: center;
+    border: none;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+}
+
+button.btn-primary {
+    border: none;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+}
+
+button.btn-secondary {
+    background: var(--blush-2);
+    color: var(--ink);
+    padding: 13px 24px;
+    border-radius: 100px;
+    font-weight: 600;
+    font-size: 14px;
+    border: 1px solid rgba(31, 20, 32, 0.08);
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+}
+
+.status-line {
+    font-size: 13px;
+    margin-top: 14px;
+    min-height: 18px;
+    color: var(--plum-muted);
+}
+
+.status-line.ok { color: #3F8F5F; }
+.status-line.err { color: var(--coral-dim); }
+
+/* ---------- AUTH PAGE ---------- */
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 5.5vw;
+    position: relative;
+    background:
+        radial-gradient(ellipse 60% 50% at 78% 18%, rgba(255, 184, 107, 0.3), transparent 60%),
+        radial-gradient(ellipse 70% 60% at 15% 85%, rgba(255, 111, 89, 0.22), transparent 60%),
+        linear-gradient(160deg, var(--dusk-1) 0%, var(--dusk-2) 55%, var(--dusk-3) 100%);
+    overflow: hidden;
+}
+
+.auth-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(1.5px 1.5px at 20% 30%, rgba(255, 246, 239, 0.5), transparent),
+        radial-gradient(1.5px 1.5px at 70% 20%, rgba(255, 246, 239, 0.4), transparent),
+        radial-gradient(1px 1px at 40% 70%, rgba(255, 246, 239, 0.35), transparent),
+        radial-gradient(1.5px 1.5px at 85% 65%, rgba(255, 246, 239, 0.3), transparent);
+    pointer-events: none;
+}
+
+.auth-card {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 400px;
+    background: var(--cream);
+    border-radius: var(--radius-lg);
+    padding: 40px 34px;
+    box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.5);
+}
+
+.auth-card .nav-mark {
+    color: var(--ink);
+    margin-bottom: 8px;
+}
+
+.auth-card .eyebrow {
+    color: var(--coral-dim);
+    margin-bottom: 6px;
+}
+
+.auth-card h1 {
+    font-size: 24px;
+    color: var(--ink);
+    margin-bottom: 22px;
+}
+
+.auth-back {
+    position: relative;
+    z-index: 2;
+    color: var(--cream);
+    opacity: 0.7;
+    font-size: 13px;
+    position: absolute;
+    top: 26px;
+    left: 5.5vw;
+}
+
+/* ---------- DISCOVER ---------- */
+.candidate-card {
+    background: var(--cream);
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-bottom: 18px;
+    box-shadow: 0 18px 40px -24px rgba(75, 30, 60, 0.3);
+    border: 1px solid rgba(31, 20, 32, 0.06);
+}
+
+.candidate-card .top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.candidate-card .name-age {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 21px;
+    color: var(--ink);
+}
+
+.candidate-card .vibe-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--blush-2);
+    color: var(--coral-dim);
+    padding: 5px 12px;
+    border-radius: 100px;
+    font-weight: 500;
+}
+
+.candidate-card .bio {
+    margin-top: 10px;
+    color: #6b5468;
+    font-size: 14.5px;
+    line-height: 1.5;
+}
+
+.candidate-card .meta-row {
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--plum-muted);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.candidate-card .pills {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.candidate-card .pill {
+    background: var(--blush);
+    color: var(--ink);
+    font-size: 12px;
+    padding: 4px 11px;
+    border-radius: 100px;
+}
+
+.candidate-card .actions {
+    margin-top: 18px;
+    display: flex;
+    gap: 12px;
+}
+
+.candidate-card .actions button {
+    flex: 1;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--plum-muted);
+}
+
+.empty-state .display {
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 8px;
+}
+
+.match-toast {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-12px);
+    background: linear-gradient(150deg, var(--dusk-2), var(--dusk-1));
+    color: var(--cream);
+    padding: 16px 26px;
+    border-radius: 100px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.5);
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+}
+
+.match-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- CHAT ---------- */
+.chat-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.match-list-card {
+    background: var(--cream);
+    border-radius: var(--radius-lg);
+    padding: 10px;
+    border: 1px solid rgba(31, 20, 32, 0.06);
+}
+
+.match-list-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+}
+
+.match-list-item:hover, .match-list-item.active {
+    background: var(--blush-2);
+}
+
+.match-list-item .avatar-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--coral), var(--amber));
+    flex-shrink: 0;
+}
+
+.match-list-item .who { font-weight: 600; font-size: 14px; color: var(--ink); }
+.match-list-item .when { font-size: 11px; color: var(--plum-muted); font-family: 'JetBrains Mono', monospace; }
+
+.chat-panel {
+    background: linear-gradient(160deg, #1a1220, #241a2b);
+    border-radius: var(--radius-lg);
+    padding: 22px 18px;
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.5);
+}
+
+.chat-panel .chat-header {
+    color: var(--cream);
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    padding: 0 6px 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+}
+
+.chat-panel .chat-scroll {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 4px;
+    min-height: 320px;
+}
+
+.chat-panel .chat-input-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 0 4px;
+}
+
+.chat-panel .chat-input-row input {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 100px;
+    border: 1px solid var(--line);
+    background: rgba(255, 246, 239, 0.06);
+    color: var(--cream);
+    font-family: 'Sora', sans-serif;
+    font-size: 14px;
+}
+
+.chat-panel .chat-input-row input::placeholder { color: rgba(255,246,239,0.4); }
+.chat-panel .chat-input-row input:focus { outline: 2px solid var(--coral); }
+
+.chat-panel .chat-input-row button {
+    border: none;
+    background: var(--coral);
+    color: var(--cream);
+    padding: 0 20px;
+    border-radius: 100px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Sora', sans-serif;
+}
+
+.chat-empty {
+    color: rgba(255,246,239,0.5);
+    text-align: center;
+    margin: auto;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+}
+
+@media (max-width: 760px) {
+    .chat-layout { grid-template-columns: 1fr; }
+}
+
+/* ---------- LOCATION MAP (profile page) ---------- */
+#locationMap {
+    height: 220px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(31, 20, 32, 0.12);
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.location-readout {
+    font-size: 12.5px;
+    color: var(--plum-muted);
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Log in — VibeMatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+  rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body class="app-body">
+
+<a href="index.html" class="auth-back">← back to VibeMatch</a>
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="nav-mark"><span class="dot"></span>VibeMatch</div>
+    <div class="eyebrow" style="margin-top:18px;">welcome back</div>
+    <h1 class="display">log in with your number</h1>
+
+    <div class="field">
+      <label>Phone number</label>
+      <input id="phoneInput" type="tel" placeholder="+254700000000" />
+    </div>
+    <button id="sendOtpBtn" class="btn-primary btn-block">send code →</button>
+
+    <div id="otpSection" style="display:none;">
+      <div class="field" style="margin-top:20px;">
+        <label>6-digit code</label>
+        <input id="otpInput" type="text" placeholder="123456" />
+      </div>
+      <button id="verifyOtpBtn" class="btn-primary btn-block">verify &amp; continue</button>
+    </div>
+
+    <div id="loginStatus" class="status-line"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  // If already logged in, skip straight past this page.
+  if (getUserId()) window.location.href = "discover.html";
+
+  $("sendOtpBtn").addEventListener("click", async () => {
+    const phoneNumber = $("phoneInput").value.trim();
+    if (!phoneNumber) return setStatus($("loginStatus"), "Enter a phone number first.", "err");
+
+    setStatus($("loginStatus"), "Sending…");
+    const res = await fetch("/api/auth/request-otp", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber }),
+    });
+    const data = await res.json();
+    $("otpSection").style.display = "block";
+    if (data.devOtp) {
+      setStatus($("loginStatus"), `Dev mode — your code is ${data.devOtp}`, "ok");
+      $("otpInput").value = data.devOtp;
+    } else {
+      setStatus($("loginStatus"), "Code sent via SMS — check your phone.", "ok");
+    }
+  });
+
+  $("verifyOtpBtn").addEventListener("click", async () => {
+    const phoneNumber = $("phoneInput").value.trim();
+    const otp = $("otpInput").value.trim();
+    setStatus($("loginStatus"), "Verifying…");
+    const res = await fetch("/api/auth/verify-otp", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber, otp }),
+    });
+    if (!res.ok) {
+      setStatus($("loginStatus"), "Invalid or expired code.", "err");
+      return;
+    }
+    const data = await res.json();
+    setUserId(data.userId);
+    window.location.href = data.profileDone ? "discover.html" : "profile.html";
+  });
+
+  $("otpInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") $("verifyOtpBtn").click();
+  });
+  $("phoneInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") $("sendOtpBtn").click();
+  });
+</script>
+
+</body>
+</html>

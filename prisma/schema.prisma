@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model OtpCode {
+  id          Int      @id @default(autoincrement())
+  phoneNumber String   @unique
+  otp         String
+  expiresAt   DateTime
+}
+
+model User {
+  id            Int        @id @default(autoincrement())
+  phoneNumber   String     @unique
+  name          String     @default("")
+  age           Int        @default(18)
+  gender        String     @default("unspecified")
+  bio           String?
+  latitude      Float      @default(0)
+  longitude     Float      @default(0)
+  vibeAnswers   String     @default("[]") // JSON-encoded number array
+  seekingGender String     @default("any")
+  minAge        Int        @default(18)
+  maxAge        Int        @default(99)
+  maxDistanceKm Int        @default(50)
+  profileDone   Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+
+  interests     Interest[]
+
+  likesSent     Like[]     @relation("LikesSent")
+  likesReceived Like[]     @relation("LikesReceived")
+  messages      Message[]
+}
+
+model Interest {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+}
+
+model Like {
+  id         Int      @id @default(autoincrement())
+  fromUser   User     @relation("LikesSent", fields: [fromUserId], references: [id])
+  fromUserId Int
+  toUser     User     @relation("LikesReceived", fields: [toUserId], references: [id])
+  toUserId   Int
+  createdAt  DateTime @default(now())
+
+  @@unique([fromUserId, toUserId])
+}
+
+model Match {
+  id        Int       @id @default(autoincrement())
+  userAId   Int
+  userBId   Int
+  createdAt DateTime  @default(now())
+  messages  Message[]
+
+  @@unique([userAId, userBId])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  matchId   Int
+  match     Match    @relation(fields: [matchId], references: [id])
+  senderId  Int
+  sender    User     @relation(fields: [senderId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+}

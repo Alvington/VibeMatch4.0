@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your profile — VibeMatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+  rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body class="app-body" style="background:var(--blush);">
+
+<div id="appNav" class="app-nav"></div>
+
+<div class="app-main">
+  <div class="app-head">
+    <div class="eyebrow">your profile</div>
+    <h1 class="display">what should people know before they hear your voice note?</h1>
+    <p>This is what VibeMatch uses to find your daily match — the vibe quiz matters more than the bio.</p>
+  </div>
+
+  <div class="field-row">
+    <div class="field">
+      <label>Name</label>
+      <input id="nameInput" type="text" placeholder="Amaka" />
+    </div>
+    <div class="field">
+      <label>Age</label>
+      <input id="ageInput" type="number" value="24" />
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field">
+      <label>Gender</label>
+      <select id="genderInput">
+        <option value="female">female</option>
+        <option value="male">male</option>
+        <option value="other">other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Seeking</label>
+      <select id="seekingInput">
+        <option value="male">male</option>
+        <option value="female">female</option>
+        <option value="any">any</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Location (click the map or drag the pin)</label>
+    <div id="locationMap"></div>
+    <div class="location-readout">Selected: <span id="locationReadout">-1.2921, 36.8219</span></div>
+    <input id="latInput" type="hidden" value="-1.2921" />
+    <input id="lonInput" type="hidden" value="36.8219" />
+    <button type="button" id="useMyLocationBtn" class="btn-secondary" style="margin-top:10px;">use my current location</button>
+  </div>
+
+  <div class="field">
+    <label>Max distance (km)</label>
+    <input id="distInput" type="number" value="50" />
+  </div>
+
+  <div class="field">
+    <label>Bio</label>
+    <textarea id="bioInput" rows="3" placeholder="Hiking on weekends, jazz on weeknights."></textarea>
+  </div>
+
+  <div class="field">
+    <label>Interests (comma separated)</label>
+    <input id="interestsInput" type="text" placeholder="hiking, jazz, coffee" />
+  </div>
+
+  <div class="field">
+    <label>Vibe quiz — 1 (low) to 5 (high)</label>
+  </div>
+  <div class="field-row">
+    <div class="field"><label>Energy</label><input id="vibe1" type="range" min="1" max="5" value="3" /></div>
+    <div class="field"><label>Spontaneity</label><input id="vibe2" type="range" min="1" max="5" value="3" /></div>
+  </div>
+  <div class="field-row">
+    <div class="field"><label>Directness</label><input id="vibe3" type="range" min="1" max="5" value="3" /></div>
+    <div class="field"><label>Humor (silly → dry)</label><input id="vibe4" type="range" min="1" max="5" value="3" /></div>
+  </div>
+
+  <button id="saveProfileBtn" class="btn-primary btn-block">save profile</button>
+  <div id="profileStatus" class="status-line"></div>
+</div>
+
+<script src="app.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const currentUserId = requireAuth();
+  renderAppNav("profile");
+
+  // ---- Location map ----
+  let locationMap, locationMarker;
+
+  function setLocation(lat, lng) {
+    $("latInput").value = lat.toFixed(6);
+    $("lonInput").value = lng.toFixed(6);
+    $("locationReadout").textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }
+
+  function initLocationMap() {
+    const startLat = Number($("latInput").value);
+    const startLng = Number($("lonInput").value);
+    locationMap = L.map("locationMap").setView([startLat, startLng], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 18,
+    }).addTo(locationMap);
+    locationMarker = L.marker([startLat, startLng], { draggable: true }).addTo(locationMap);
+    locationMarker.on("dragend", () => {
+      const pos = locationMarker.getLatLng();
+      setLocation(pos.lat, pos.lng);
+    });
+    locationMap.on("click", (e) => {
+      locationMarker.setLatLng(e.latlng);
+      setLocation(e.latlng.lat, e.latlng.lng);
+    });
+  }
+  initLocationMap();
+
+  $("useMyLocationBtn").addEventListener("click", () => {
+    if (!navigator.geolocation) return alert("Geolocation isn't supported by this browser.");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        locationMap.setView([latitude, longitude], 14);
+        locationMarker.setLatLng([latitude, longitude]);
+        setLocation(latitude, longitude);
+      },
+      (err) => alert("Could not get your location: " + err.message)
+    );
+  });
+
+  // Note: there's no GET /api/profile/:id endpoint yet, so this form always
+  // starts blank/default rather than pre-filling with your saved profile.
+  // Worth adding if you want editing an existing profile to feel right.
+
+  // ---- Save ----
+  $("saveProfileBtn").addEventListener("click", async () => {
+    const body = {
+      name: $("nameInput").value,
+      age: Number($("ageInput").value),
+      gender: $("genderInput").value,
+      seekingGender: $("seekingInput").value,
+      latitude: Number($("latInput").value),
+      longitude: Number($("lonInput").value),
+      maxDistanceKm: Number($("distInput").value),
+      bio: $("bioInput").value,
+      interests: $("interestsInput").value.split(",").map((s) => s.trim()).filter(Boolean),
+      vibeAnswers: [Number($("vibe1").value), Number($("vibe2").value), Number($("vibe3").value), Number($("vibe4").value)],
+      minAge: 18, maxAge: 99,
+    };
+    const res = await fetch(`/api/profile/${currentUserId}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      setStatus($("profileStatus"), "Saved — taking you to Discover…", "ok");
+      setTimeout(() => (window.location.href = "discover.html"), 700);
+    } else {
+      setStatus($("profileStatus"), "Failed to save profile.", "err");
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Discover — VibeMatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+  rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body class="app-body" style="background:var(--blush);">
+
+<div id="appNav" class="app-nav"></div>
+
+<div id="matchToast" class="match-toast"></div>
+
+<div class="app-main">
+  <div class="app-head">
+    <div class="eyebrow">today's candidates</div>
+    <h1 class="display">ranked by vibe, distance, and shared interests.</h1>
+    <p>Highest overall score first. Liking someone who's already liked you creates an instant match.</p>
+  </div>
+
+  <div id="candidatesList"></div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  const currentUserId = requireAuth();
+  renderAppNav("discover");
+
+  function showMatchToast(name) {
+    const el = $("matchToast");
+    el.textContent = name ? `🎉 it's a match with ${name}!` : "🎉 it's a match!";
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 3200);
+  }
+
+  async function loadDiscover() {
+    const list = $("candidatesList");
+    list.innerHTML = '<p style="color:var(--plum-muted);">Loading…</p>';
+
+    const res = await fetch(`/api/discover/${currentUserId}`);
+    const candidates = await res.json();
+
+    if (!Array.isArray(candidates) || !candidates.length) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="display">no one new right now</div>
+          <p>Widen your max distance in your profile, or check back after more people join.</p>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = "";
+    for (const c of candidates) {
+      const card = document.createElement("div");
+      card.className = "candidate-card";
+      card.dataset.id = c.id;
+      card.innerHTML = `
+        <div class="top-row">
+          <div class="name-age">${c.name}, ${c.age}</div>
+          <div class="vibe-badge">${c.vibePercent}% vibe</div>
+        </div>
+        ${c.bio ? `<p class="bio">${c.bio}</p>` : ""}
+        <div class="meta-row">${c.distanceKm}km away · ${c.sharedInterestCount} shared interest${c.sharedInterestCount === 1 ? "" : "s"}</div>
+        <div class="pills">${(c.interests || []).map((i) => `<span class="pill">${i}</span>`).join("")}</div>
+        <div class="actions">
+          <button class="btn-secondary pass-btn">pass</button>
+          <button class="btn-primary like-btn">like</button>
+        </div>
+      `;
+      list.appendChild(card);
+    }
+
+    list.querySelectorAll(".pass-btn").forEach((btn) => {
+      btn.addEventListener("click", () => btn.closest(".candidate-card").remove());
+    });
+
+    list.querySelectorAll(".like-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const card = btn.closest(".candidate-card");
+        const toUserId = Number(card.dataset.id);
+        const name = card.querySelector(".name-age").textContent;
+        btn.disabled = true;
+        btn.textContent = "…";
+
+        const res = await fetch("/api/like", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fromUserId: currentUserId, toUserId }),
+        });
+        const data = await res.json();
+
+        if (data.matched) {
+          showMatchToast(name);
+          card.style.opacity = "0.5";
+          btn.textContent = "matched 🎉";
+        } else {
+          btn.textContent = "liked";
+        }
+      });
+    });
+  }
+
+  loadDiscover();
+</script>
+
+</body>
+</html>

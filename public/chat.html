@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chat — VibeMatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+  rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="app.css" />
+</head>
+<body class="app-body" style="background:var(--blush);">
+
+<div id="appNav" class="app-nav"></div>
+
+<div class="app-main wide">
+  <div class="app-head">
+    <div class="eyebrow">your matches</div>
+    <h1 class="display">say something worth a voice note back.</h1>
+  </div>
+
+  <div class="chat-layout">
+    <div class="match-list-card" id="matchList"></div>
+
+    <div class="chat-panel">
+      <div class="chat-header" id="chatHeader">Pick a match to start chatting</div>
+      <div class="chat-scroll" id="chatScroll">
+        <div class="chat-empty" id="chatEmpty">no conversation open yet</div>
+      </div>
+      <div class="chat-input-row" id="chatInputRow" style="display:none;">
+        <input id="chatInput" placeholder="type a message…" />
+        <button id="sendChatBtn">send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const currentUserId = requireAuth();
+  renderAppNav("chat");
+
+  let socket = null;
+  let currentMatchId = null;
+
+  function connectSocket() {
+    if (socket) return;
+    socket = io();
+    socket.on("new_message", (msg) => {
+      if (msg.matchId === currentMatchId) appendBubble(msg);
+    });
+  }
+
+  function appendBubble(msg) {
+    $("chatEmpty")?.remove();
+    const row = document.createElement("div");
+    row.className = "chat-row" + (msg.senderId === currentUserId ? " me" : "");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + (msg.senderId === currentUserId ? "me" : "them");
+    bubble.textContent = msg.content;
+    row.appendChild(bubble);
+    $("chatScroll").appendChild(row);
+    $("chatScroll").scrollTop = $("chatScroll").scrollHeight;
+  }
+
+  async function loadMatches() {
+    const res = await fetch(`/api/matches/${currentUserId}`);
+    const matches = await res.json();
+    const list = $("matchList");
+
+    if (!matches.length) {
+      list.innerHTML = `<div class="empty-state"><div class="display" style="font-size:16px;">no matches yet</div><p style="font-size:13px;">go like a few people on Discover.</p></div>`;
+      return;
+    }
+
+    list.innerHTML = "";
+    for (const m of matches) {
+      const item = document.createElement("div");
+      item.className = "match-list-item";
+      item.dataset.matchId = m.matchId;
+      item.innerHTML = `
+        <div class="avatar-dot"></div>
+        <div>
+          <div class="who">${m.otherUser.name || "Unnamed"}</div>
+          <div class="when">matched ${new Date(m.createdAt).toLocaleDateString()}</div>
+        </div>
+      `;
+      item.addEventListener("click", () => openChat(m.matchId, m.otherUser.name));
+      list.appendChild(item);
+    }
+  }
+
+  async function openChat(matchId, name) {
+    currentMatchId = matchId;
+    connectSocket();
+    socket.emit("join_match", matchId);
+
+    document.querySelectorAll(".match-list-item").forEach((el) => {
+      el.classList.toggle("active", Number(el.dataset.matchId) === matchId);
+    });
+
+    $("chatHeader").textContent = name || "Chat";
+    $("chatInputRow").style.display = "flex";
+    $("chatScroll").innerHTML = '<div class="chat-empty">loading…</div>';
+
+    const res = await fetch(`/api/messages/${matchId}`);
+    const messages = await res.json();
+    $("chatScroll").innerHTML = "";
+    if (!messages.length) {
+      $("chatScroll").innerHTML = '<div class="chat-empty">say hi 👋</div>';
+    } else {
+      messages.forEach(appendBubble);
+    }
+  }
+
+  $("sendChatBtn").addEventListener("click", sendMessage);
+  $("chatInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
+
+  function sendMessage() {
+    const content = $("chatInput").value.trim();
+    if (!content || !currentMatchId || !socket) return;
+    socket.emit("send_message", { matchId: currentMatchId, senderId: currentUserId, content });
+    $("chatInput").value = "";
+  }
+
+  loadMatches();
+</script>
+
+</body>
+</html>
