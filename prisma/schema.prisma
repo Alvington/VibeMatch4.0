@@ -21,6 +21,7 @@ model User {
   age           Int        @default(18)
   gender        String     @default("unspecified")
   bio           String?
+  photoUrl      String?    @db.Text // base64 data URI, resized/compressed client-side before upload
   latitude      Float      @default(0)
   longitude     Float      @default(0)
   vibeAnswers   String     @default("[]") // JSON-encoded number array

@@ -348,7 +348,8 @@
       setStatus($("profileStatus"), "Saved — taking you to Discover…", "ok");
       setTimeout(() => (window.location.href = "discover.html"), 700);
     } else {
-      setStatus($("profileStatus"), "Failed to save profile.", "err");
+      const body = await res.json().catch(() => null);
+      setStatus($("profileStatus"), body?.error ? `${body.error}${body.detail ? " — " + body.detail : ""}` : `Failed to save profile (${res.status}).`, "err");
     }
   });
 </script>

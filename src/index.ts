@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
@@ -74,49 +74,61 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
 // Powers pre-filling the profile form with the user's saved data - without
 // this, every visit to the profile page looked blank/default even after saving.
 app.get("/api/profile/:userId", async (req: Request, res: Response) => {
-  const userId = Number(req.params.userId);
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { interests: true } });
-  if (!user) return res.status(404).json({ error: "User not found" });
+  try {
+    const userId = Number(req.params.userId);
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { interests: true } });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-  res.json({
-    ...user,
-    vibeAnswers: JSON.parse(user.vibeAnswers) as number[],
-    interests: user.interests.map((i: (typeof user.interests)[number]) => i.name),
-  });
+    res.json({
+      ...user,
+      vibeAnswers: JSON.parse(user.vibeAnswers) as number[],
+      interests: user.interests.map((i: (typeof user.interests)[number]) => i.name),
+    });
+  } catch (err: any) {
+    console.error("GET /api/profile failed:", err);
+    res.status(500).json({ error: "Failed to load profile", detail: err?.message });
+  }
 });
 
 app.put("/api/profile/:userId", async (req: Request, res: Response) => {
-  const userId = Number(req.params.userId);
-  const {
-    name, age, gender, bio, photoUrl, latitude, longitude,
-    vibeAnswers, seekingGender, minAge, maxAge, maxDistanceKm, interests,
-  } = req.body as {
-    name?: string; age?: number; gender?: string; bio?: string; photoUrl?: string;
-    latitude?: number; longitude?: number; vibeAnswers?: number[];
-    seekingGender?: string; minAge?: number; maxAge?: number;
-    maxDistanceKm?: number; interests?: string[];
-  };
-
-  const interestConnections = (interests ?? []).map((name) => ({
-    where: { name },
-    create: { name },
-  }));
-
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: {
+  try {
+    const userId = Number(req.params.userId);
+    const {
       name, age, gender, bio, photoUrl, latitude, longitude,
-      seekingGender, minAge, maxAge, maxDistanceKm,
-      vibeAnswers: vibeAnswers ? JSON.stringify(vibeAnswers) : undefined,
-      profileDone: true,
-      // Interests are fully replaced on every save (not just added to) so
-      // removing a chip on the frontend actually removes it here too.
-      interests: { set: [], connectOrCreate: interestConnections },
-    },
-    include: { interests: true },
-  });
+      vibeAnswers, seekingGender, minAge, maxAge, maxDistanceKm, interests,
+    } = req.body as {
+      name?: string; age?: number; gender?: string; bio?: string; photoUrl?: string;
+      latitude?: number; longitude?: number; vibeAnswers?: number[];
+      seekingGender?: string; minAge?: number; maxAge?: number;
+      maxDistanceKm?: number; interests?: string[];
+    };
 
-  res.json(user);
+    const interestConnections = (interests ?? []).map((name) => ({
+      where: { name },
+      create: { name },
+    }));
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name, age, gender, bio, photoUrl, latitude, longitude,
+        seekingGender, minAge, maxAge, maxDistanceKm,
+        vibeAnswers: vibeAnswers ? JSON.stringify(vibeAnswers) : undefined,
+        profileDone: true,
+        // Interests are fully replaced on every save (not just added to) so
+        // removing a chip on the frontend actually removes it here too.
+        interests: { set: [], connectOrCreate: interestConnections },
+      },
+      include: { interests: true },
+    });
+
+    res.json(user);
+  } catch (err: any) {
+    // Logged in full server-side (Render logs); client gets a safe summary so
+    // we're not leaking internals, but enough to tell what kind of failure it was.
+    console.error("PUT /api/profile failed:", err);
+    res.status(500).json({ error: "Failed to save profile", detail: err?.message });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -260,6 +272,17 @@ io.on("connection", (socket) => {
     const message = await prisma.message.create({ data: { matchId, senderId, content } });
     io.to(`match_${matchId}`).emit("new_message", message);
   });
+});
+
+// Catches anything routes don't handle themselves - notably express.json()
+// throwing synchronously if a request body is over the 6mb limit, which
+// otherwise renders as an opaque HTML error page instead of JSON.
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("Unhandled error:", err);
+  if (err?.type === "entity.too.large") {
+    return res.status(413).json({ error: "That photo is too large even after compression. Try a smaller image." });
+  }
+  res.status(500).json({ error: "Something went wrong on our end.", detail: err?.message });
 });
 
 const PORT = Number(process.env.PORT) || 3000;
