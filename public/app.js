@@ -42,7 +42,7 @@ function renderAppNav(activePage) {
       ${link("chat.html", "Chat", "chat")}
     </div>
     <div class="app-right">
-      <span class="user-chip">user #${userId ?? "?"}</span>
+      <span class="user-chip" id="navUserChip">…</span>
       <a href="#" class="logout-link" id="logoutLink">Log out</a>
     </div>
   `;
@@ -50,6 +50,22 @@ function renderAppNav(activePage) {
     e.preventDefault();
     logout();
   });
+
+  // Fetched fresh each load (rather than cached) so an updated name shows up
+  // immediately on every page, including right after a profile edit.
+  if (userId) {
+    fetch(`/api/profile/${userId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((user) => {
+        const chip = $("navUserChip");
+        if (!chip) return; // page may have navigated away already
+        chip.textContent = user?.name?.trim() ? user.name : `user #${userId}`;
+      })
+      .catch(() => {
+        const chip = $("navUserChip");
+        if (chip) chip.textContent = `user #${userId}`;
+      });
+  }
 }
 
 function setStatus(el, text, kind) {

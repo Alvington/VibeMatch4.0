@@ -266,7 +266,35 @@ button.btn-secondary {
 .candidate-card .top-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 14px;
+}
+
+.candidate-card .avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--coral), var(--amber));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.candidate-card .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.candidate-card .avatar .initial {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    color: var(--cream);
+}
+
+.candidate-card .name-age-wrap {
+    flex: 1;
 }
 
 .candidate-card .name-age {
@@ -487,4 +515,128 @@ button.btn-secondary {
     color: var(--plum-muted);
     margin-top: 8px;
     font-family: 'JetBrains Mono', monospace;
+}
+
+/* ---------- PHOTO UPLOAD (profile page) ---------- */
+.photo-upload-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 28px;
+}
+
+.photo-circle {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--coral), var(--amber));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 3px solid var(--cream);
+    box-shadow: 0 0 0 1px rgba(31, 20, 32, 0.08);
+}
+
+.photo-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.photo-circle .initial {
+    font-family: 'Fraunces', serif;
+    font-size: 34px;
+    color: var(--cream);
+}
+
+.photo-circle .edit-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(31, 20, 32, 0.55);
+    color: var(--cream);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-align: center;
+    padding: 4px 0;
+    letter-spacing: 0.04em;
+}
+
+.photo-upload-hint {
+    color: var(--plum-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.photo-upload-hint .err {
+    color: var(--coral-dim);
+    display: block;
+    margin-top: 4px;
+}
+
+/* ---------- INTEREST CHIP INPUT (profile page) ---------- */
+.chip-input {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(31, 20, 32, 0.12);
+    background: var(--cream);
+}
+
+.chip-input:focus-within {
+    outline: 2px solid var(--coral);
+    outline-offset: 1px;
+}
+
+.chip-input input {
+    flex: 1;
+    min-width: 120px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'Sora', sans-serif;
+    font-size: 14.5px;
+    color: var(--ink);
+    padding: 4px 2px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--blush-2);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 8px 6px 12px;
+    border-radius: 100px;
+    white-space: nowrap;
+}
+
+.chip .chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(31, 20, 32, 0.12);
+    color: var(--ink);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    border: none;
+}
+
+.chip .chip-remove:hover {
+    background: var(--coral);
+    color: var(--cream);
 }

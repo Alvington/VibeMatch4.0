@@ -32,7 +32,32 @@ export function vibeScore(a: number[], b: number[], scaleMax = 5): number {
   return 1 - distance / maxPossibleDistance;
 }
 
-/** Combines vibe similarity and shared-interest count into one ranking score. */
-export function overallScore(vibe: number, sharedInterests: number): number {
-  return vibe + sharedInterests * 0.1;
+/**
+ * Similarity between two people's interest sets, as a Jaccard index (shared /
+ * total distinct interests across both). 1 if their interest lists are
+ * identical, 0 if they share nothing (or neither has any interests listed).
+ */
+export function interestOverlap(aIds: number[], bIds: number[]): number {
+  if (!aIds.length && !bIds.length) return 0;
+  const setA = new Set(aIds);
+  const setB = new Set(bIds);
+  const shared = [...setA].filter((id) => setB.has(id)).length;
+  const union = new Set([...setA, ...setB]).size;
+  return union === 0 ? 0 : shared / union;
+}
+
+/**
+ * The "vibe %" shown to users - a blend of quiz-answer similarity and shared
+ * interests, so someone with a near-identical vibe quiz but zero shared
+ * interests doesn't outrank someone who's a great match on both fronts.
+ * Weighted 70/30 toward the quiz since it's a richer, more deliberate signal
+ * than a handful of interest tags.
+ */
+export function combinedVibeScore(quizVibe: number, interestOverlapScore: number): number {
+  return quizVibe * 0.7 + interestOverlapScore * 0.3;
+}
+
+/** Combines the blended vibe score and shared-interest count into one ranking score. */
+export function overallScore(combinedVibe: number, sharedInterests: number): number {
+  return combinedVibe + sharedInterests * 0.02;
 }

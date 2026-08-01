@@ -62,7 +62,14 @@
       card.dataset.id = c.id;
       card.innerHTML = `
         <div class="top-row">
-          <div class="name-age">${c.name}, ${c.age}</div>
+          <div class="avatar">
+            ${c.photoUrl
+              ? `<img src="${c.photoUrl}" alt="${c.name}" />`
+              : `<span class="initial">${(c.name || "?").trim().charAt(0).toUpperCase() || "?"}</span>`}
+          </div>
+          <div class="name-age-wrap">
+            <div class="name-age">${c.name}, ${c.age}</div>
+          </div>
           <div class="vibe-badge">${c.vibePercent}% vibe</div>
         </div>
         ${c.bio ? `<p class="bio">${c.bio}</p>` : ""}

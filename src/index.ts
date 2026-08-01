@@ -5,11 +5,11 @@ import http from "http";
 import { Server } from "socket.io";
 import { prisma } from "./db";
 import { sendSms, hasRealCredentials } from "./sms";
-import { haversineKm, vibeScore, overallScore } from "./matching";
+import { haversineKm, vibeScore, interestOverlap, combinedVibeScore, overallScore } from "./matching";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "6mb" }));
 app.use(express.static("public"));
 
 const server = http.createServer(app);
@@ -71,13 +71,27 @@ app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
 // Profile
 // ---------------------------------------------------------------------------
 
+// Powers pre-filling the profile form with the user's saved data - without
+// this, every visit to the profile page looked blank/default even after saving.
+app.get("/api/profile/:userId", async (req: Request, res: Response) => {
+  const userId = Number(req.params.userId);
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { interests: true } });
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  res.json({
+    ...user,
+    vibeAnswers: JSON.parse(user.vibeAnswers) as number[],
+    interests: user.interests.map((i: (typeof user.interests)[number]) => i.name),
+  });
+});
+
 app.put("/api/profile/:userId", async (req: Request, res: Response) => {
   const userId = Number(req.params.userId);
   const {
-    name, age, gender, bio, latitude, longitude,
+    name, age, gender, bio, photoUrl, latitude, longitude,
     vibeAnswers, seekingGender, minAge, maxAge, maxDistanceKm, interests,
   } = req.body as {
-    name?: string; age?: number; gender?: string; bio?: string;
+    name?: string; age?: number; gender?: string; bio?: string; photoUrl?: string;
     latitude?: number; longitude?: number; vibeAnswers?: number[];
     seekingGender?: string; minAge?: number; maxAge?: number;
     maxDistanceKm?: number; interests?: string[];
@@ -91,11 +105,13 @@ app.put("/api/profile/:userId", async (req: Request, res: Response) => {
   const user = await prisma.user.update({
     where: { id: userId },
     data: {
-      name, age, gender, bio, latitude, longitude,
+      name, age, gender, bio, photoUrl, latitude, longitude,
       seekingGender, minAge, maxAge, maxDistanceKm,
       vibeAnswers: vibeAnswers ? JSON.stringify(vibeAnswers) : undefined,
       profileDone: true,
-      interests: { connectOrCreate: interestConnections },
+      // Interests are fully replaced on every save (not just added to) so
+      // removing a chip on the frontend actually removes it here too.
+      interests: { set: [], connectOrCreate: interestConnections },
     },
     include: { interests: true },
   });
@@ -127,9 +143,10 @@ app.get("/api/discover/:userId", async (req: Request, res: Response) => {
   });
 
   const meVibe = JSON.parse(me.vibeAnswers) as number[];
+  const meInterestIds = me.interests.map((i: (typeof me.interests)[number]) => i.id);
 
   interface RankedCandidate {
-    id: number; name: string; age: number; bio: string | null;
+    id: number; name: string; age: number; bio: string | null; photoUrl: string | null;
     interests: string[]; distanceKm: number; vibePercent: number;
     sharedInterestCount: number; score: number;
   }
@@ -137,17 +154,18 @@ app.get("/api/discover/:userId", async (req: Request, res: Response) => {
   const ranked = candidates
     .map((c: (typeof candidates)[number]) => {
       const distanceKm = haversineKm(me.latitude, me.longitude, c.latitude, c.longitude);
-      const shared = c.interests.filter((i: (typeof c.interests)[number]) =>
-        me.interests.some((mi: (typeof me.interests)[number]) => mi.id === i.id)
-      ).length;
-      const vibe = vibeScore(meVibe, JSON.parse(c.vibeAnswers) as number[]);
+      const cInterestIds = c.interests.map((i: (typeof c.interests)[number]) => i.id);
+      const shared = cInterestIds.filter((id: number) => meInterestIds.includes(id)).length;
+      const quizVibe = vibeScore(meVibe, JSON.parse(c.vibeAnswers) as number[]);
+      const overlap = interestOverlap(meInterestIds, cInterestIds);
+      const combined = combinedVibeScore(quizVibe, overlap);
       return {
-        id: c.id, name: c.name, age: c.age, bio: c.bio,
+        id: c.id, name: c.name, age: c.age, bio: c.bio, photoUrl: c.photoUrl,
         interests: c.interests.map((i: (typeof c.interests)[number]) => i.name),
         distanceKm: Math.round(distanceKm * 10) / 10,
-        vibePercent: Math.round(vibe * 100),
+        vibePercent: Math.round(combined * 100),
         sharedInterestCount: shared,
-        score: overallScore(vibe, shared),
+        score: overallScore(combined, shared),
       };
     })
     .filter((c: RankedCandidate) => c.distanceKm <= me.maxDistanceKm)

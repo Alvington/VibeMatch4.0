@@ -23,6 +23,19 @@
     <p>This is what VibeMatch uses to find your daily match — the vibe quiz matters more than the bio.</p>
   </div>
 
+  <div class="photo-upload-row">
+    <div class="photo-circle" id="photoCircle" title="Click to change photo">
+      <span class="initial" id="photoInitial">?</span>
+      <img id="photoPreview" style="display:none;" alt="Your profile photo" />
+      <div class="edit-badge">edit</div>
+    </div>
+    <div class="photo-upload-hint">
+      Click the circle to upload a photo. This is the picture people see on Discover.
+      <span class="err" id="photoError"></span>
+    </div>
+    <input type="file" id="photoFileInput" accept="image/*" style="display:none;" />
+  </div>
+
   <div class="field-row">
     <div class="field">
       <label>Name</label>
@@ -73,8 +86,11 @@
   </div>
 
   <div class="field">
-    <label>Interests (comma separated)</label>
-    <input id="interestsInput" type="text" placeholder="hiking, jazz, coffee" />
+    <label>Interests — type one, press Enter</label>
+    <div class="chip-input" id="chipInputWrap">
+      <input id="interestsInput" type="text" placeholder="hiking" />
+    </div>
+    <div class="field-hint" id="interestsHint">Up to 10. Press Enter or comma to add, backspace to remove the last one.</div>
   </div>
 
   <div class="field">
@@ -126,27 +142,188 @@
       setLocation(e.latlng.lat, e.latlng.lng);
     });
   }
+
+  function moveMapTo(lat, lng) {
+    locationMap.setView([lat, lng], 13);
+    locationMarker.setLatLng([lat, lng]);
+    setLocation(lat, lng);
+  }
+
   initLocationMap();
 
   $("useMyLocationBtn").addEventListener("click", () => {
     if (!navigator.geolocation) return alert("Geolocation isn't supported by this browser.");
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        locationMap.setView([latitude, longitude], 14);
-        locationMarker.setLatLng([latitude, longitude]);
-        setLocation(latitude, longitude);
-      },
+      (pos) => moveMapTo(pos.coords.latitude, pos.coords.longitude),
       (err) => alert("Could not get your location: " + err.message)
     );
   });
 
-  // Note: there's no GET /api/profile/:id endpoint yet, so this form always
-  // starts blank/default rather than pre-filling with your saved profile.
-  // Worth adding if you want editing an existing profile to feel right.
+  // ---- Photo upload ----
+  // Render's free tier has no persistent disk, so photos are stored as
+  // compressed base64 straight in Postgres rather than saved to a file.
+  let photoDataUrl = null; // null = no change from what's saved; "" = explicitly removed
+
+  const MAX_DIMENSION = 640;
+  const JPEG_QUALITY = 0.82;
+
+  function showPhotoError(msg) {
+    $("photoError").textContent = msg;
+  }
+
+  function setPhotoPreview(url) {
+    const img = $("photoPreview");
+    const initial = $("photoInitial");
+    if (url) {
+      img.src = url;
+      img.style.display = "block";
+      initial.style.display = "none";
+    } else {
+      img.style.display = "none";
+      initial.style.display = "block";
+    }
+  }
+
+  $("photoCircle").addEventListener("click", () => $("photoFileInput").click());
+
+  $("photoFileInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showPhotoError("");
+
+    if (!file.type.startsWith("image/")) {
+      showPhotoError("Please choose an image file.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      showPhotoError("That image is too large — try one under 8MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize/compress client-side so we're not storing multi-MB photos as
+        // base64 rows in Postgres.
+        let { width, height } = img;
+        if (width > height && width > MAX_DIMENSION) {
+          height = Math.round((height * MAX_DIMENSION) / width);
+          width = MAX_DIMENSION;
+        } else if (height > MAX_DIMENSION) {
+          width = Math.round((width * MAX_DIMENSION) / height);
+          height = MAX_DIMENSION;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        photoDataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+        setPhotoPreview(photoDataUrl);
+      };
+      img.onerror = () => showPhotoError("Couldn't read that image — try a different file.");
+      img.src = reader.result;
+    };
+    reader.onerror = () => showPhotoError("Couldn't read that file.");
+    reader.readAsDataURL(file);
+  });
+
+  // ---- Interest chips ----
+  const MAX_INTERESTS = 10;
+  let interestsList = [];
+
+  function renderChips() {
+    const wrap = $("chipInputWrap");
+    wrap.querySelectorAll(".chip").forEach((el) => el.remove());
+    const input = $("interestsInput");
+    interestsList.forEach((interest, idx) => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.innerHTML = `${interest} <button type="button" class="chip-remove" aria-label="Remove ${interest}">×</button>`;
+      chip.querySelector(".chip-remove").addEventListener("click", () => {
+        interestsList.splice(idx, 1);
+        renderChips();
+      });
+      wrap.insertBefore(chip, input);
+    });
+    $("interestsHint").textContent =
+      interestsList.length >= MAX_INTERESTS
+        ? `That's the max of ${MAX_INTERESTS} interests.`
+        : "Up to 10. Press Enter or comma to add, backspace to remove the last one.";
+    input.disabled = interestsList.length >= MAX_INTERESTS;
+  }
+
+  function addInterestFromInput() {
+    const input = $("interestsInput");
+    const value = input.value.trim().replace(/,$/, "").trim();
+    input.value = "";
+    if (!value) return;
+    if (interestsList.length >= MAX_INTERESTS) return;
+    const isDuplicate = interestsList.some((i) => i.toLowerCase() === value.toLowerCase());
+    if (isDuplicate) return;
+    interestsList.push(value);
+    renderChips();
+  }
+
+  $("interestsInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addInterestFromInput();
+    } else if (e.key === "Backspace" && !e.target.value && interestsList.length) {
+      interestsList.pop();
+      renderChips();
+    }
+  });
+  // Also commit whatever's typed if the user clicks away without pressing Enter.
+  $("interestsInput").addEventListener("blur", addInterestFromInput);
+
+  renderChips();
+
+  // ---- Pre-fill from saved profile ----
+  async function loadExistingProfile() {
+    try {
+      const res = await fetch(`/api/profile/${currentUserId}`);
+      if (!res.ok) return;
+      const user = await res.json();
+
+      if (user.name) $("nameInput").value = user.name;
+      if (user.age) $("ageInput").value = user.age;
+      if (user.gender) $("genderInput").value = user.gender;
+      if (user.seekingGender) $("seekingInput").value = user.seekingGender;
+      if (user.maxDistanceKm) $("distInput").value = user.maxDistanceKm;
+      if (user.bio) $("bioInput").value = user.bio;
+
+      $("photoInitial").textContent = (user.name || "?").trim().charAt(0).toUpperCase() || "?";
+      if (user.photoUrl) setPhotoPreview(user.photoUrl);
+
+      // A brand-new profile has latitude/longitude at their DB default of 0,0 -
+      // that's the middle of the ocean, so keep the friendly Nairobi default
+      // already on the page instead of jumping the map there.
+      if (user.latitude && user.longitude) moveMapTo(user.latitude, user.longitude);
+
+      if (Array.isArray(user.interests) && user.interests.length) {
+        interestsList = [...user.interests];
+        renderChips();
+      }
+
+      if (Array.isArray(user.vibeAnswers) && user.vibeAnswers.length === 4) {
+        $("vibe1").value = user.vibeAnswers[0];
+        $("vibe2").value = user.vibeAnswers[1];
+        $("vibe3").value = user.vibeAnswers[2];
+        $("vibe4").value = user.vibeAnswers[3];
+      }
+    } catch {
+      // Fine to fail quietly here - worst case the form just starts blank,
+      // same as before this endpoint existed.
+    }
+  }
+  loadExistingProfile();
 
   // ---- Save ----
   $("saveProfileBtn").addEventListener("click", async () => {
+    // Commit any interest still sitting in the input but not yet turned into a chip.
+    addInterestFromInput();
+
     const body = {
       name: $("nameInput").value,
       age: Number($("ageInput").value),
@@ -156,10 +333,13 @@
       longitude: Number($("lonInput").value),
       maxDistanceKm: Number($("distInput").value),
       bio: $("bioInput").value,
-      interests: $("interestsInput").value.split(",").map((s) => s.trim()).filter(Boolean),
+      interests: interestsList,
       vibeAnswers: [Number($("vibe1").value), Number($("vibe2").value), Number($("vibe3").value), Number($("vibe4").value)],
       minAge: 18, maxAge: 99,
     };
+    // Only send photoUrl if it actually changed - otherwise leave whatever's saved alone.
+    if (photoDataUrl !== null) body.photoUrl = photoDataUrl;
+
     const res = await fetch(`/api/profile/${currentUserId}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
