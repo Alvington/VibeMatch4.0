@@ -18,24 +18,74 @@
 <div class="auth-page">
   <div class="auth-card">
     <div class="nav-mark"><span class="dot"></span>VibeMatch</div>
-    <div class="eyebrow" style="margin-top:18px;">welcome back</div>
-    <h1 class="display">log in with your number</h1>
 
-    <div class="field">
-      <label>Phone number</label>
-      <input id="phoneInput" type="tel" placeholder="+254700000000" />
+    <!-- Step 1: just the phone number -->
+    <div id="phoneScreen">
+      <div class="eyebrow" style="margin-top:18px;">welcome back</div>
+      <h1 class="display">log in with your number</h1>
+      <div class="field">
+        <label>Phone number</label>
+        <input id="phoneInput" type="tel" placeholder="+254700000000" />
+      </div>
+      <button id="continueBtn" class="btn-primary btn-block">continue →</button>
     </div>
-    <button id="sendOtpBtn" class="btn-primary btn-block">send code →</button>
 
-    <div id="otpSection" style="display:none;">
-      <div class="field" style="margin-top:20px;">
+    <!-- Step 2a: returning user with a password already set -->
+    <div id="passwordScreen" style="display:none;">
+      <button class="text-link-btn" id="backFromPassword">‹ use a different number</button>
+      <div class="eyebrow" style="margin-top:14px;">welcome back</div>
+      <h1 class="display">enter your password</h1>
+      <div class="field">
+        <label>Password</label>
+        <input id="passwordInput" type="password" placeholder="••••••••" />
+      </div>
+      <button id="loginBtn" class="btn-primary btn-block">log in</button>
+      <div id="passwordStatus" class="status-line"></div>
+      <button class="text-link-btn" id="forgotPasswordBtn" style="margin-top:14px;">forgot your password?</button>
+    </div>
+
+    <!-- Step 2b: brand-new number, or an existing account with no password yet,
+         or a forgot-password reset - all three just need "verify the phone,
+         then set a password", so they share this screen. -->
+    <div id="otpRequestScreen" style="display:none;">
+      <button class="text-link-btn" id="backFromOtpRequest">‹ back</button>
+      <div class="eyebrow" style="margin-top:14px;" id="otpRequestEyebrow">verify it's you</div>
+      <h1 class="display" id="otpRequestHeading">how should we send your code?</h1>
+
+      <div id="newEmailField" class="field" style="display:none;">
+        <label>Email (optional — lets you receive codes there too)</label>
+        <input id="signupEmailInput" type="email" placeholder="you@example.com" />
+      </div>
+
+      <div class="channel-choice" id="channelChoice">
+        <button type="button" class="channel-btn active" data-channel="sms" id="smsChannelBtn">text me a code</button>
+        <button type="button" class="channel-btn" data-channel="email" id="emailChannelBtn" disabled>email me a code</button>
+      </div>
+
+      <div id="otpRequestStatus" class="status-line"></div>
+    </div>
+
+    <!-- Step 3: enter the code that arrived, and set a password -->
+    <div id="otpVerifyScreen" style="display:none;">
+      <button class="text-link-btn" id="backFromOtpVerify">‹ back</button>
+      <div class="eyebrow" style="margin-top:14px;">almost there</div>
+      <h1 class="display" id="otpVerifyHeading">enter your code</h1>
+      <div class="field">
         <label>6-digit code</label>
         <input id="otpInput" type="text" placeholder="123456" />
       </div>
-      <button id="verifyOtpBtn" class="btn-primary btn-block">verify &amp; continue</button>
+      <div class="field">
+        <label id="newPasswordLabel">Set a password</label>
+        <input id="newPasswordInput" type="password" placeholder="At least 6 characters" />
+      </div>
+      <div class="field">
+        <label>Confirm password</label>
+        <input id="confirmPasswordInput" type="password" placeholder="••••••••" />
+      </div>
+      <button id="verifyBtn" class="btn-primary btn-block">verify &amp; set password</button>
+      <div id="verifyStatus" class="status-line"></div>
     </div>
 
-    <div id="loginStatus" class="status-line"></div>
   </div>
 </div>
 
@@ -44,48 +94,168 @@
   // If already logged in, skip straight past this page.
   if (getUserId()) window.location.href = "discover.html";
 
-  $("sendOtpBtn").addEventListener("click", async () => {
-    const phoneNumber = $("phoneInput").value.trim();
-    if (!phoneNumber) return setStatus($("loginStatus"), "Enter a phone number first.", "err");
+  // Carries context between screens - which number we're working with, what
+  // the lookup told us about it, and which channel the person picked.
+  const flow = { phoneNumber: "", existingUser: false, hasEmail: false, channel: "sms", enteredEmail: "" };
 
-    setStatus($("loginStatus"), "Sending…");
-    const res = await fetch("/api/auth/request-otp", {
+  function showScreen(id) {
+    ["phoneScreen", "passwordScreen", "otpRequestScreen", "otpVerifyScreen"].forEach((s) => {
+      $(s).style.display = s === id ? "block" : "none";
+    });
+  }
+
+  // ---- Step 1: phone number -> look up which screen comes next ----
+  async function continueFromPhone() {
+    const phoneNumber = $("phoneInput").value.trim();
+    if (!phoneNumber) return;
+    flow.phoneNumber = phoneNumber;
+
+    const res = await fetch("/api/auth/lookup", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phoneNumber }),
     });
     const data = await res.json();
-    $("otpSection").style.display = "block";
-    if (data.devOtp) {
-      setStatus($("loginStatus"), `Dev mode — your code is ${data.devOtp}`, "ok");
-      $("otpInput").value = data.devOtp;
+    flow.existingUser = data.exists;
+    flow.hasEmail = data.hasEmail;
+
+    if (data.exists && data.hasPassword) {
+      $("passwordInput").value = "";
+      showScreen("passwordScreen");
     } else {
-      setStatus($("loginStatus"), "Code sent via SMS — check your phone.", "ok");
+      enterOtpRequestScreen(data.exists ? "setup" : "signup");
     }
+  }
+
+  $("continueBtn").addEventListener("click", continueFromPhone);
+  $("phoneInput").addEventListener("keydown", (e) => { if (e.key === "Enter") continueFromPhone(); });
+  $("backFromPassword").addEventListener("click", () => showScreen("phoneScreen"));
+
+  // ---- Step 2a: password login ----
+  async function submitLogin() {
+    const password = $("passwordInput").value;
+    setStatus($("passwordStatus"), "");
+    const res = await fetch("/api/auth/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneNumber: flow.phoneNumber, password }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setUserId(data.userId);
+      window.location.href = data.profileDone ? "discover.html" : "profile.html";
+    } else if (data.error === "no_password_set") {
+      enterOtpRequestScreen("setup");
+    } else {
+      setStatus($("passwordStatus"), data.error || data.message || "Couldn't log in.", "err");
+    }
+  }
+
+  $("loginBtn").addEventListener("click", submitLogin);
+  $("passwordInput").addEventListener("keydown", (e) => { if (e.key === "Enter") submitLogin(); });
+  $("forgotPasswordBtn").addEventListener("click", () => enterOtpRequestScreen("forgot"));
+
+  // ---- Step 2b: choose how to receive the code ----
+  // mode: "signup" (brand new number), "setup" (legacy account, no password yet),
+  // "forgot" (existing account resetting their password) - "setup" and "forgot"
+  // behave identically, since both are just "verify + set a (new) password".
+  function enterOtpRequestScreen(mode) {
+    flow.mode = mode;
+    $("newEmailField").style.display = mode === "signup" ? "block" : "none";
+    $("signupEmailInput").value = "";
+    flow.enteredEmail = "";
+
+    $("otpRequestHeading").textContent = mode === "signup" ? "how should we send your code?" : "verify it's you first";
+    $("otpRequestEyebrow").textContent = mode === "forgot" ? "reset your password" : "verify it's you";
+
+    // Only a brand-new signup can freely choose email, and even then only once
+    // they've typed something - the field just got cleared above, so start
+    // disabled either way and let the input listener re-enable it once valid.
+    // For an existing account, email delivery is only offered if they already
+    // have one on file - never take an email address as input here for an
+    // existing account, since that would let anyone redirect someone else's
+    // reset code to an address they don't own.
+    $("emailChannelBtn").disabled = mode === "signup" ? true : !flow.hasEmail;
+    setChannel("sms");
+    setStatus($("otpRequestStatus"), "");
+    showScreen("otpRequestScreen");
+  }
+
+  function setChannel(channel) {
+    flow.channel = channel;
+    $("smsChannelBtn").classList.toggle("active", channel === "sms");
+    $("emailChannelBtn").classList.toggle("active", channel === "email");
+  }
+
+  $("smsChannelBtn").addEventListener("click", () => setChannel("sms"));
+  $("emailChannelBtn").addEventListener("click", () => setChannel("email"));
+  $("signupEmailInput").addEventListener("input", (e) => {
+    const looksValid = /\S+@\S+\.\S+/.test(e.target.value.trim());
+    $("emailChannelBtn").disabled = !looksValid;
+    if (!looksValid && flow.channel === "email") setChannel("sms");
   });
 
-  $("verifyOtpBtn").addEventListener("click", async () => {
-    const phoneNumber = $("phoneInput").value.trim();
-    const otp = $("otpInput").value.trim();
-    setStatus($("loginStatus"), "Verifying…");
-    const res = await fetch("/api/auth/verify-otp", {
+  $("backFromOtpRequest").addEventListener("click", () => {
+    showScreen(flow.mode === "forgot" ? "passwordScreen" : "phoneScreen");
+  });
+
+  async function requestCode() {
+    flow.enteredEmail = $("signupEmailInput").value.trim();
+    setStatus($("otpRequestStatus"), "Sending…");
+
+    const res = await fetch("/api/auth/request-otp", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phoneNumber, otp }),
+      body: JSON.stringify({ phoneNumber: flow.phoneNumber, channel: flow.channel, email: flow.enteredEmail }),
     });
+    const data = await res.json();
+
     if (!res.ok) {
-      setStatus($("loginStatus"), "Invalid or expired code.", "err");
+      setStatus($("otpRequestStatus"), data.error || "Couldn't send a code.", "err");
       return;
     }
+
+    $("otpVerifyHeading").textContent = data.channel === "email" ? "enter the code we emailed you" : "enter the code we texted you";
+    $("newPasswordLabel").textContent = flow.mode === "forgot" ? "New password" : "Set a password";
+    $("otpInput").value = data.devOtp || "";
+    $("newPasswordInput").value = "";
+    $("confirmPasswordInput").value = "";
+    setStatus($("verifyStatus"), data.devOtp ? `Dev mode — your code is ${data.devOtp}` : `Code sent via ${data.channel === "email" ? "email" : "SMS"} — check your inbox.`, "ok");
+    showScreen("otpVerifyScreen");
+  }
+
+  // Buttons double as both channel-picker and the send action, since there's
+  // nothing else to configure once a channel's chosen.
+  $("smsChannelBtn").addEventListener("click", requestCode);
+  $("emailChannelBtn").addEventListener("click", requestCode);
+
+  $("backFromOtpVerify").addEventListener("click", () => showScreen("otpRequestScreen"));
+
+  // ---- Step 3: verify code + set password ----
+  async function submitVerify() {
+    const otp = $("otpInput").value.trim();
+    const password = $("newPasswordInput").value;
+    const confirmPassword = $("confirmPasswordInput").value;
+
+    if (password.length < 6) return setStatus($("verifyStatus"), "Password must be at least 6 characters.", "err");
+    if (password !== confirmPassword) return setStatus($("verifyStatus"), "Passwords don't match.", "err");
+
+    setStatus($("verifyStatus"), "Verifying…");
+    const res = await fetch("/api/auth/verify-otp-set-password", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phoneNumber: flow.phoneNumber, otp, password,
+        email: flow.mode === "signup" ? flow.enteredEmail : undefined,
+      }),
+    });
     const data = await res.json();
+    if (!res.ok) {
+      setStatus($("verifyStatus"), data.error || "Couldn't verify that code.", "err");
+      return;
+    }
     setUserId(data.userId);
     window.location.href = data.profileDone ? "discover.html" : "profile.html";
-  });
+  }
 
-  $("otpInput")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") $("verifyOtpBtn").click();
-  });
-  $("phoneInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") $("sendOtpBtn").click();
-  });
+  $("verifyBtn").addEventListener("click", submitVerify);
+  $("confirmPasswordInput").addEventListener("keydown", (e) => { if (e.key === "Enter") submitVerify(); });
 </script>
 
 </body>

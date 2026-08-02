@@ -5,6 +5,8 @@ import http from "http";
 import { Server } from "socket.io";
 import { prisma } from "./db";
 import { sendSms, hasRealCredentials } from "./sms";
+import { sendEmail, hasEmailCredentials } from "./email";
+import bcrypt from "bcryptjs";
 import { haversineKm, vibeScore, interestOverlap, combinedVibeScore, overallScore } from "./matching";
 
 const app = express();
@@ -21,50 +23,130 @@ app.get("/healthz", (_req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
-// Auth: request + verify a one-time code over SMS
+// Auth
+//
+// First-time verification (by SMS or email OTP) plus a password afterward -
+// not OTP on every single login. One endpoint,
+// /api/auth/verify-otp-set-password, handles three cases that are all really
+// the same underlying action ("prove you control this phone, then set a
+// password"): signing up, a legacy no-password account setting one for the
+// first time, and a forgot-password reset.
 // ---------------------------------------------------------------------------
 
-app.post("/api/auth/request-otp", async (req: Request, res: Response) => {
+// Tells the frontend which screen to show for a given number - password entry,
+// or the OTP-plus-password-setup flow (covers both brand-new numbers and
+// legacy accounts created before passwords existed).
+app.post("/api/auth/lookup", async (req: Request, res: Response) => {
   const { phoneNumber } = req.body as { phoneNumber?: string };
   if (!phoneNumber) return res.status(400).json({ error: "phoneNumber is required" });
-
-  const otp = String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-  // Stored in Postgres (not process memory) so the code survives a server
-  // restart between "request" and "verify" - important on hosts like Render
-  // where the instance can restart or spin down between the two requests.
-  await prisma.otpCode.upsert({
-    where: { phoneNumber },
-    update: { otp, expiresAt },
-    create: { phoneNumber, otp, expiresAt },
-  });
-
-  await sendSms(phoneNumber, `Your VibeMatch verification code is ${otp}. It expires in 5 minutes.`);
-
-  // Dev convenience: with no real Africa's Talking credentials configured, the code
-  // isn't going anywhere real - hand it back in the response so you can test without
-  // tailing server logs. Remove this once AT_API_KEY is set to a real sandbox key.
-  res.json({ sent: true, devOtp: hasRealCredentials ? undefined : otp });
+  const user = await prisma.user.findUnique({ where: { phoneNumber } });
+  res.json({ exists: !!user, hasPassword: !!user?.passwordHash, hasEmail: !!user?.email });
 });
 
-app.post("/api/auth/verify-otp", async (req: Request, res: Response) => {
-  const { phoneNumber, otp } = req.body as { phoneNumber?: string; otp?: string };
-  if (!phoneNumber || !otp) return res.status(400).json({ error: "phoneNumber and otp are required" });
+app.post("/api/auth/login", async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber, password } = req.body as { phoneNumber?: string; password?: string };
+    if (!phoneNumber || !password) return res.status(400).json({ error: "Phone number and password are required" });
 
-  const record = await prisma.otpCode.findUnique({ where: { phoneNumber } });
-  if (!record || record.otp !== otp || Date.now() > record.expiresAt.getTime()) {
-    return res.status(401).json({ error: "Invalid or expired code" });
+    const user = await prisma.user.findUnique({ where: { phoneNumber } });
+    if (!user) return res.status(404).json({ error: "No account with that number yet." });
+    if (!user.passwordHash) {
+      return res.status(409).json({ error: "no_password_set", message: "This account doesn't have a password yet - verify your number to set one." });
+    }
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) return res.status(401).json({ error: "Incorrect password." });
+
+    res.json({ userId: user.id, profileDone: user.profileDone });
+  } catch (err: any) {
+    console.error("login failed:", err);
+    res.status(500).json({ error: "Login failed", detail: err?.message });
   }
-  await prisma.otpCode.delete({ where: { phoneNumber } });
+});
 
-  const user = await prisma.user.upsert({
-    where: { phoneNumber },
-    update: {},
-    create: { phoneNumber },
-  });
+app.post("/api/auth/request-otp", async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber, channel, email } = req.body as { phoneNumber?: string; channel?: "sms" | "email"; email?: string };
+    if (!phoneNumber) return res.status(400).json({ error: "phoneNumber is required" });
 
-  res.json({ userId: user.id, profileDone: user.profileDone });
+    const existingUser = await prisma.user.findUnique({ where: { phoneNumber } });
+
+    // Where an email code actually goes depends on whether this number already
+    // has an account. For an existing account we only ever use the email
+    // already on file - trusting a client-supplied address here would let
+    // anyone "reset" someone else's account to an email they control.
+    // For a brand-new signup there's no account yet to hijack, so the address
+    // they just typed is what they're claiming as theirs.
+    let targetEmail: string | null = null;
+    if (channel === "email") {
+      targetEmail = existingUser ? existingUser.email : (email?.trim() || null);
+      if (!targetEmail) {
+        return res.status(400).json({
+          error: existingUser ? "No email on file for this account - use SMS instead." : "Enter an email to receive the code there.",
+        });
+      }
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    // Stored in Postgres (not process memory) so the code survives a server
+    // restart between "request" and "verify" - important on hosts like Render
+    // where the instance can restart or spin down between the two requests.
+    await prisma.otpCode.upsert({
+      where: { phoneNumber },
+      update: { otp, expiresAt },
+      create: { phoneNumber, otp, expiresAt },
+    });
+
+    const usingEmail = channel === "email" && targetEmail;
+    if (usingEmail) {
+      await sendEmail(targetEmail!, "Your VibeMatch verification code", `Your VibeMatch verification code is ${otp}. It expires in 5 minutes.`);
+    } else {
+      await sendSms(phoneNumber, `Your VibeMatch verification code is ${otp}. It expires in 5 minutes.`);
+    }
+
+    // Dev convenience: with no real credentials configured for whichever channel
+    // was actually used, the code isn't going anywhere real - hand it back in
+    // the response so you can test without tailing server logs.
+    const devMode = usingEmail ? !hasEmailCredentials : !hasRealCredentials;
+    res.json({ sent: true, channel: usingEmail ? "email" : "sms", devOtp: devMode ? otp : undefined });
+  } catch (err: any) {
+    console.error("request-otp failed:", err);
+    res.status(500).json({ error: "Failed to send code", detail: err?.message });
+  }
+});
+
+app.post("/api/auth/verify-otp-set-password", async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber, otp, password, email } = req.body as {
+      phoneNumber?: string; otp?: string; password?: string; email?: string;
+    };
+    if (!phoneNumber || !otp || !password) return res.status(400).json({ error: "Phone number, code, and password are required" });
+    if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters." });
+
+    const record = await prisma.otpCode.findUnique({ where: { phoneNumber } });
+    if (!record || record.otp !== otp || Date.now() > record.expiresAt.getTime()) {
+      return res.status(401).json({ error: "Invalid or expired code" });
+    }
+    await prisma.otpCode.delete({ where: { phoneNumber } });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const existingUser = await prisma.user.findUnique({ where: { phoneNumber } });
+
+    // Existing account (legacy no-password user, or a forgot-password reset):
+    // only ever touch the password here, never the email - changing the email
+    // is a separate, deliberate action, not a side effect of a reset.
+    // Brand-new signup: create the user, optionally with the email they typed.
+    const user = existingUser
+      ? await prisma.user.update({ where: { phoneNumber }, data: { passwordHash } })
+      : await prisma.user.create({ data: { phoneNumber, passwordHash, email: email?.trim() || null } });
+
+    res.json({ userId: user.id, profileDone: user.profileDone });
+  } catch (err: any) {
+    if (err.code === "P2002") return res.status(409).json({ error: "That email is already in use by another account." });
+    console.error("verify-otp-set-password failed:", err);
+    res.status(500).json({ error: "Failed to verify code", detail: err?.message });
+  }
 });
 
 // ---------------------------------------------------------------------------

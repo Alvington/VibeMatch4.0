@@ -17,6 +17,8 @@ model OtpCode {
 model User {
   id            Int        @id @default(autoincrement())
   phoneNumber   String     @unique
+  email         String?    @unique
+  passwordHash  String?    // null until the user verifies once and sets a password
   name          String     @default("")
   age           Int        @default(18)
   gender        String     @default("unspecified")

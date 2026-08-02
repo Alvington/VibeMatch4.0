@@ -242,6 +242,51 @@ button.btn-secondary {
     margin-bottom: 22px;
 }
 
+.text-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--coral-dim);
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: block;
+}
+
+.text-link-btn:hover { text-decoration: underline; }
+
+.channel-choice {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.channel-btn {
+    flex: 1;
+    padding: 14px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(31, 20, 32, 0.14);
+    background: var(--blush);
+    color: var(--ink);
+    font-family: 'Sora', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+}
+
+.channel-btn.active {
+    border-color: var(--coral);
+    background: var(--coral);
+    color: var(--cream);
+}
+
+.channel-btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .auth-back {
     position: relative;
     z-index: 2;
