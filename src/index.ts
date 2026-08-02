@@ -13,7 +13,7 @@ app.use(express.json({ limit: "6mb" }));
 app.use(express.static("public"));
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { cors: { origin: "*" }, maxHttpBufferSize: 8e6 });
 
 // Health check for Render (and anyone else) to confirm the process is up.
 app.get("/healthz", (_req: Request, res: Response) => {
@@ -268,10 +268,25 @@ io.on("connection", (socket) => {
     socket.join(`match_${matchId}`);
   });
 
-  socket.on("send_message", async ({ matchId, senderId, content }: { matchId: number; senderId: number; content: string }) => {
-    const message = await prisma.message.create({ data: { matchId, senderId, content } });
-    io.to(`match_${matchId}`).emit("new_message", message);
-  });
+  socket.on(
+    "send_message",
+    async ({ matchId, senderId, content, audioUrl, audioDurationSec }: {
+      matchId: number; senderId: number; content?: string; audioUrl?: string; audioDurationSec?: number;
+    }) => {
+      if (!content?.trim() && !audioUrl) return; // nothing to send
+      try {
+        const message = await prisma.message.create({
+          data: { matchId, senderId, content: content?.trim() || null, audioUrl: audioUrl || null, audioDurationSec: audioDurationSec || null },
+        });
+        io.to(`match_${matchId}`).emit("new_message", message);
+      } catch (err: any) {
+        console.error("send_message failed:", err);
+        // Told back to the sender only, not the whole room - so a failure doesn't
+        // silently vanish the way the old SMS error-handling used to.
+        socket.emit("message_error", { matchId, error: "Failed to send message", detail: err?.message });
+      }
+    }
+  );
 });
 
 // Catches anything routes don't handle themselves - notably express.json()

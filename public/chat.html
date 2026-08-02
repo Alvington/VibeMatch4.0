@@ -30,8 +30,23 @@
         <div class="chat-empty" id="chatEmpty">no conversation open yet</div>
       </div>
       <div class="chat-input-row" id="chatInputRow" style="display:none;">
-        <input id="chatInput" placeholder="type a message…" />
-        <button id="sendChatBtn">send</button>
+        <div class="input-mode" id="textMode">
+          <input id="chatInput" placeholder="type a message…" />
+          <button id="micBtn" class="icon-btn" type="button" title="Record a voice note">🎙️</button>
+          <button id="sendChatBtn">send</button>
+        </div>
+        <div class="input-mode" id="recordingMode" style="display:none;">
+          <span class="rec-dot"></span>
+          <span class="rec-timer" id="recTimer">0:00</span>
+          <span class="rec-hint">recording — up to 1:00</span>
+          <button id="cancelRecBtn" class="icon-btn" type="button" title="Cancel">✕</button>
+          <button id="stopRecBtn" type="button">stop</button>
+        </div>
+        <div class="input-mode" id="reviewMode" style="display:none;">
+          <audio id="reviewPlayer" controls></audio>
+          <button id="discardRecBtn" class="icon-btn" type="button" title="Discard">✕</button>
+          <button id="sendRecBtn" type="button">send</button>
+        </div>
       </div>
     </div>
   </div>
@@ -52,16 +67,39 @@
     socket.on("new_message", (msg) => {
       if (msg.matchId === currentMatchId) appendBubble(msg);
     });
+    socket.on("message_error", (err) => {
+      alert(err.error + (err.detail ? ": " + err.detail : ""));
+    });
+  }
+
+  function formatDuration(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60);
+    const s = Math.floor(totalSeconds % 60);
+    return `${m}:${String(s).padStart(2, "0")}`;
   }
 
   function appendBubble(msg) {
     $("chatEmpty")?.remove();
+    const mine = msg.senderId === currentUserId;
     const row = document.createElement("div");
-    row.className = "chat-row" + (msg.senderId === currentUserId ? " me" : "");
-    const bubble = document.createElement("div");
-    bubble.className = "bubble " + (msg.senderId === currentUserId ? "me" : "them");
-    bubble.textContent = msg.content;
-    row.appendChild(bubble);
+    row.className = "chat-row" + (mine ? " me" : "");
+
+    if (msg.audioUrl) {
+      const note = document.createElement("div");
+      note.className = "voice-note" + (mine ? " me" : "");
+      note.innerHTML = `
+        <span class="vn-icon">🎙️</span>
+        <audio controls src="${msg.audioUrl}"></audio>
+        ${msg.audioDurationSec ? `<span class="dur">${formatDuration(msg.audioDurationSec)}</span>` : ""}
+      `;
+      row.appendChild(note);
+    } else {
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + (mine ? "me" : "them");
+      bubble.textContent = msg.content;
+      row.appendChild(bubble);
+    }
+
     $("chatScroll").appendChild(row);
     $("chatScroll").scrollTop = $("chatScroll").scrollHeight;
   }
@@ -99,6 +137,9 @@
   }
 
   async function openChat(matchId, name, photoUrl) {
+    if (recordingTimerInterval) cancelRecording();
+    if (reviewAudioDataUrl) discardReview();
+
     currentMatchId = matchId;
     connectSocket();
     socket.emit("join_match", matchId);
@@ -136,6 +177,116 @@
     socket.emit("send_message", { matchId: currentMatchId, senderId: currentUserId, content });
     $("chatInput").value = "";
   }
+
+  // ---------------------------------------------------------------------
+  // Voice notes
+  // ---------------------------------------------------------------------
+  const MAX_RECORD_SECONDS = 60;
+  const micSupported = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+  if (!micSupported) {
+    $("micBtn").disabled = true;
+    $("micBtn").title = "Voice notes aren't supported in this browser";
+  }
+
+  let mediaRecorder = null;
+  let mediaStream = null;
+  let recordedChunks = [];
+  let recordingTimerInterval = null;
+  let recordingElapsedSec = 0;
+  let reviewAudioDataUrl = null;
+  let reviewAudioDurationSec = 0;
+
+  function showInputMode(mode) {
+    $("textMode").style.display = mode === "text" ? "flex" : "none";
+    $("recordingMode").style.display = mode === "recording" ? "flex" : "none";
+    $("reviewMode").style.display = mode === "review" ? "flex" : "none";
+  }
+
+  function pickSupportedMimeType() {
+    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+    return candidates.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+  }
+
+  async function startRecording() {
+    if (!micSupported) return;
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      alert("Couldn't access your microphone: " + err.message);
+      return;
+    }
+
+    const mimeType = pickSupportedMimeType();
+    // Low bitrate is plenty for voice and keeps the base64 payload small -
+    // there's no separate file storage here, this goes straight into Postgres.
+    const options = { audioBitsPerSecond: 32000, ...(mimeType ? { mimeType } : {}) };
+    mediaRecorder = new MediaRecorder(mediaStream, options);
+    recordedChunks = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+    mediaRecorder.onstop = () => {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      if (!recordedChunks.length) return; // cancelled before any data arrived
+      const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      const reader = new FileReader();
+      reader.onload = () => {
+        reviewAudioDataUrl = reader.result;
+        reviewAudioDurationSec = recordingElapsedSec;
+        $("reviewPlayer").src = reviewAudioDataUrl;
+        showInputMode("review");
+      };
+      reader.readAsDataURL(blob);
+    };
+
+    mediaRecorder.start();
+    recordingElapsedSec = 0;
+    $("recTimer").textContent = "0:00";
+    showInputMode("recording");
+    recordingTimerInterval = setInterval(() => {
+      recordingElapsedSec += 1;
+      $("recTimer").textContent = formatDuration(recordingElapsedSec);
+      if (recordingElapsedSec >= MAX_RECORD_SECONDS) stopRecording();
+    }, 1000);
+  }
+
+  function stopRecording() {
+    clearInterval(recordingTimerInterval);
+    recordingTimerInterval = null;
+    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+  }
+
+  function cancelRecording() {
+    clearInterval(recordingTimerInterval);
+    recordingTimerInterval = null;
+    recordedChunks = []; // onstop still fires, but with nothing to build a blob from
+    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+    showInputMode("text");
+  }
+
+  function discardReview() {
+    reviewAudioDataUrl = null;
+    $("reviewPlayer").src = "";
+    showInputMode("text");
+  }
+
+  function sendReviewedVoiceNote() {
+    if (!reviewAudioDataUrl || !currentMatchId || !socket) return;
+    socket.emit("send_message", {
+      matchId: currentMatchId,
+      senderId: currentUserId,
+      audioUrl: reviewAudioDataUrl,
+      audioDurationSec: reviewAudioDurationSec,
+    });
+    discardReview();
+  }
+
+  $("micBtn").addEventListener("click", startRecording);
+  $("stopRecBtn").addEventListener("click", stopRecording);
+  $("cancelRecBtn").addEventListener("click", cancelRecording);
+  $("discardRecBtn").addEventListener("click", discardReview);
+  $("sendRecBtn").addEventListener("click", sendReviewedVoiceNote);
 
   loadMatches();
 </script>

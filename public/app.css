@@ -532,6 +532,82 @@ button.btn-secondary {
     font-family: 'Sora', sans-serif;
 }
 
+.chat-panel .input-mode {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.icon-btn {
+    border: none;
+    background: rgba(255, 246, 239, 0.09);
+    color: var(--cream);
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover { background: rgba(255, 246, 239, 0.16); }
+.icon-btn[disabled] { opacity: 0.35; cursor: not-allowed; }
+
+.rec-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ff5b5b;
+    flex-shrink: 0;
+    animation: rec-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+.rec-timer {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--cream);
+    font-size: 13px;
+    min-width: 38px;
+}
+
+.rec-hint {
+    color: rgba(255, 246, 239, 0.55);
+    font-size: 12.5px;
+    flex: 1;
+}
+
+#reviewMode audio {
+    flex: 1;
+    height: 34px;
+    color-scheme: dark;
+}
+
+/* Functional voice-note bubble in real conversations (the landing-page .voice-note
+   is a purely decorative mockup - this reuses the same look for the real thing). */
+.voice-note.me {
+    margin-left: auto;
+    background: rgba(255, 107, 74, 0.18);
+    border-color: rgba(255, 107, 74, 0.35);
+    border-bottom-right-radius: 4px;
+    border-bottom-left-radius: 16px;
+}
+
+.voice-note .vn-icon { font-size: 15px; flex-shrink: 0; }
+
+.voice-note audio {
+    height: 32px;
+    width: 190px;
+    color-scheme: dark;
+}
+
 .chat-empty {
     color: rgba(255,246,239,0.5);
     text-align: center;

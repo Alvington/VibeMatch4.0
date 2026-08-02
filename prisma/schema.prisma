@@ -67,11 +67,13 @@ model Match {
 }
 
 model Message {
-  id        Int      @id @default(autoincrement())
-  matchId   Int
-  match     Match    @relation(fields: [matchId], references: [id])
-  senderId  Int
-  sender    User     @relation(fields: [senderId], references: [id])
-  content   String
-  createdAt DateTime @default(now())
+  id               Int      @id @default(autoincrement())
+  matchId          Int
+  match            Match    @relation(fields: [matchId], references: [id])
+  senderId         Int
+  sender           User     @relation(fields: [senderId], references: [id])
+  content          String?
+  audioUrl         String?  @db.Text // base64 data URI (webm/opus), short recordings only
+  audioDurationSec Int?
+  createdAt        DateTime @default(now())
 }
