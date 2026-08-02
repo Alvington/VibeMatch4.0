@@ -99,10 +99,3 @@ ALTER TABLE "_InterestToUser" ADD CONSTRAINT "_InterestToUser_A_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "_InterestToUser" ADD CONSTRAINT "_InterestToUser_B_fkey" FOREIGN KEY ("B") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AlterTable
-ALTER TABLE "User" ADD COLUMN "email" TEXT;
-ALTER TABLE "User" ADD COLUMN "passwordHash" TEXT;
-
--- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
