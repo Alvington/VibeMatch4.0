@@ -423,6 +423,22 @@ button.btn-secondary {
     border-radius: 50%;
     background: linear-gradient(135deg, var(--coral), var(--amber));
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.match-list-item .avatar-dot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.match-list-item .avatar-dot .initial {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    color: var(--cream);
 }
 
 .match-list-item .who { font-weight: 600; font-size: 14px; color: var(--ink); }
@@ -439,12 +455,39 @@ button.btn-secondary {
 }
 
 .chat-panel .chat-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     color: var(--cream);
     font-family: 'Fraunces', serif;
     font-size: 17px;
     padding: 0 6px 16px;
     border-bottom: 1px solid var(--line);
     margin-bottom: 16px;
+}
+
+.chat-panel .chat-header .avatar-dot {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--coral), var(--amber));
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.chat-panel .chat-header .avatar-dot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.chat-panel .chat-header .avatar-dot .initial {
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    color: var(--cream);
 }
 
 .chat-panel .chat-scroll {

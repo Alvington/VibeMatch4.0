@@ -242,7 +242,7 @@ app.get("/api/matches/:userId", async (req: Request, res: Response) => {
     matches.map(async (m: (typeof matches)[number]) => {
       const otherId = m.userAId === userId ? m.userBId : m.userAId;
       const other = await prisma.user.findUnique({ where: { id: otherId } });
-      return { matchId: m.id, createdAt: m.createdAt, otherUser: { id: other?.id, name: other?.name } };
+      return { matchId: m.id, createdAt: m.createdAt, otherUser: { id: other?.id, name: other?.name, photoUrl: other?.photoUrl } };
     })
   );
 

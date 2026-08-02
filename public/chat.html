@@ -81,19 +81,24 @@
       const item = document.createElement("div");
       item.className = "match-list-item";
       item.dataset.matchId = m.matchId;
+      const initial = (m.otherUser.name || "?").trim().charAt(0).toUpperCase() || "?";
       item.innerHTML = `
-        <div class="avatar-dot"></div>
+        <div class="avatar-dot">${
+          m.otherUser.photoUrl
+            ? `<img src="${m.otherUser.photoUrl}" alt="${m.otherUser.name || "Unnamed"}" />`
+            : `<span class="initial">${initial}</span>`
+        }</div>
         <div>
           <div class="who">${m.otherUser.name || "Unnamed"}</div>
           <div class="when">matched ${new Date(m.createdAt).toLocaleDateString()}</div>
         </div>
       `;
-      item.addEventListener("click", () => openChat(m.matchId, m.otherUser.name));
+      item.addEventListener("click", () => openChat(m.matchId, m.otherUser.name, m.otherUser.photoUrl));
       list.appendChild(item);
     }
   }
 
-  async function openChat(matchId, name) {
+  async function openChat(matchId, name, photoUrl) {
     currentMatchId = matchId;
     connectSocket();
     socket.emit("join_match", matchId);
@@ -102,7 +107,11 @@
       el.classList.toggle("active", Number(el.dataset.matchId) === matchId);
     });
 
-    $("chatHeader").textContent = name || "Chat";
+    const initial = (name || "?").trim().charAt(0).toUpperCase() || "?";
+    $("chatHeader").innerHTML = `
+      <div class="avatar-dot">${photoUrl ? `<img src="${photoUrl}" alt="${name || "Chat"}" />` : `<span class="initial">${initial}</span>`}</div>
+      <span>${name || "Chat"}</span>
+    `;
     $("chatInputRow").style.display = "flex";
     $("chatScroll").innerHTML = '<div class="chat-empty">loading…</div>';
 
