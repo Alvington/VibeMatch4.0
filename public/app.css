@@ -119,6 +119,8 @@ body.app-body {
 .field input[type="text"],
 .field input[type="number"],
 .field input[type="tel"],
+.field input[type="password"],
+.field input[type="email"],
 .field select,
 .field textarea {
     width: 100%;
@@ -241,6 +243,18 @@ button.btn-secondary {
     color: var(--ink);
     margin-bottom: 22px;
 }
+
+/* "Medium" font bump, scoped to the auth card only */
+.auth-card .field label { font-size: 12.5px; }
+.auth-card .field input[type="text"],
+.auth-card .field input[type="tel"],
+.auth-card .field input[type="password"],
+.auth-card .field input[type="email"] { font-size: 16.5px; padding: 14px 16px; }
+.auth-card button.btn-primary, .auth-card .btn-block { font-size: 16.5px; padding-top: 16px; padding-bottom: 16px; }
+.auth-card .text-link-btn { font-size: 14.5px; }
+.auth-card .channel-btn { font-size: 14.5px; padding: 15px 10px; }
+.auth-card .status-line { font-size: 14px; }
+.auth-card .eyebrow { font-size: 12.5px; }
 
 .text-link-btn {
     background: none;

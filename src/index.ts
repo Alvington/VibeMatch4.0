@@ -51,7 +51,11 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({ where: { phoneNumber } });
     if (!user) return res.status(404).json({ error: "No account with that number yet." });
     if (!user.passwordHash) {
-      return res.status(409).json({ error: "no_password_set", message: "This account doesn't have a password yet - verify your number to set one." });
+      return res.status(409).json({
+        error: "no_password_set",
+        message: "This account doesn't have a password yet - verify your number to set one.",
+        hasEmail: !!user.email,
+      });
     }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: "Incorrect password." });
